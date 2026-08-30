@@ -36,10 +36,12 @@ export function ConnectShiply() {
     importShiplyJobs,
     disconnectShiply,
     refreshShiply,
+    syncFromShiply,
   } = useAppState();
   const [json, setJson] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [liveViewUrl, setLiveViewUrl] = useState("");
   const [pickupCity, setPickupCity] = useState("Manchester");
   const [deliveryCity, setDeliveryCity] = useState("Birmingham");
   const [revenue, setRevenue] = useState("420");
@@ -83,9 +85,10 @@ export function ConnectShiply() {
         <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Marketplace</p>
         <h1 className="mt-1 text-2xl font-medium">Connect Shiply</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Read and analyse only. Paste the jobs you can already see on Shiply.
-          We rank them with your vehicle and costs. You still quote and accept
-          on Shiply. We never store a Shiply password.
+          Sign into your own Shiply account once in a hosted browser. We keep
+          that session in Browserbase — not your password. Then we read the
+          jobs you can already see, rank them here, and send you back to
+          Shiply to quote.
         </p>
       </div>
 
@@ -94,8 +97,22 @@ export function ConnectShiply() {
           <div>
             <p>
               Status:{" "}
-              <span className={connected ? "text-good" : "text-muted"}>
-                {connected ? "Connected" : "Not connected"}
+              <span
+                className={
+                  connection?.status === "needs_reconnect"
+                    ? "text-bad"
+                    : connected
+                      ? "text-good"
+                      : "text-muted"
+                }
+              >
+                {connection?.status === "needs_reconnect"
+                  ? "Needs reconnect"
+                  : connected
+                    ? "Connected"
+                    : connection?.hasContext
+                      ? "Session saved"
+                      : "Not connected"}
               </span>
             </p>
             <p className="mt-1 text-muted">
@@ -104,6 +121,9 @@ export function ConnectShiply() {
                 ? ` · last refresh ${new Date(connection.lastSyncedAt).toLocaleString("en-GB")}`
                 : ""}
             </p>
+            {connection?.lastError ? (
+              <p className="mt-2 text-sm text-bad">{connection.lastError}</p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             {liveJobs.length > 0 ? (
@@ -118,10 +138,18 @@ export function ConnectShiply() {
             <button
               type="button"
               disabled={busy}
-              onClick={() => void refreshShiply()}
+              onClick={() => {
+                setBusy(true);
+                setError("");
+                void syncFromShiply()
+                  .catch((err) =>
+                    setError(err instanceof Error ? err.message : "Refresh failed."),
+                  )
+                  .finally(() => setBusy(false));
+              }}
               className="rounded-md border border-line px-3 py-1.5 text-sm"
             >
-              Refresh
+              Refresh from Shiply
             </button>
             {connected ? (
               <button
@@ -135,6 +163,89 @@ export function ConnectShiply() {
             ) : null}
           </div>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-line bg-panel p-4">
+        <h2 className="text-sm font-medium">Sign in on Shiply</h2>
+        <p className="mt-2 text-sm text-muted">
+          A Browserbase window opens on the Shiply login page. Use your own
+          Shiply email and password there. We never see or store them.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError("");
+              void fetch("/api/shiply/start", { method: "POST" })
+                .then(async (res) => {
+                  const body = (await res.json()) as {
+                    error?: string;
+                    liveViewUrl?: string;
+                  };
+                  if (!res.ok) throw new Error(body.error ?? "Could not start Shiply.");
+                  if (body.liveViewUrl) setLiveViewUrl(body.liveViewUrl);
+                })
+                .catch((err) =>
+                  setError(err instanceof Error ? err.message : "Could not start Shiply."),
+                )
+                .finally(() => setBusy(false));
+            }}
+            className="rounded-md bg-gold px-3 py-1.5 text-sm text-ink disabled:opacity-50"
+          >
+            {busy ? "Starting…" : "Open Shiply sign-in"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError("");
+              void fetch(liveViewUrl ? "/api/shiply/finish" : "/api/shiply/sync", {
+                method: "POST",
+              })
+                .then(async (res) => {
+                  const body = (await res.json()) as {
+                    error?: string;
+                    jobCount?: number;
+                  };
+                  if (!res.ok) throw new Error(body.error ?? "Could not pull jobs.");
+                  await refreshShiply();
+                  setLiveViewUrl("");
+                })
+                .catch((err) =>
+                  setError(err instanceof Error ? err.message : "Could not pull jobs."),
+                )
+                .finally(() => setBusy(false));
+            }}
+            className="rounded-md border border-line px-3 py-1.5 text-sm"
+          >
+            I’ve signed in — pull jobs
+          </button>
+        </div>
+        {liveViewUrl ? (
+          <div className="-mx-4 mt-4 overflow-hidden border-y border-line md:-mx-6 md:rounded-md md:border">
+            <iframe
+              title="Shiply sign-in"
+              src={liveViewUrl}
+              className="h-[min(88vh,920px)] w-full origin-top-left bg-white [zoom:1.35]"
+              allow="clipboard-write"
+            />
+            <p className="border-t border-line px-3 py-2 text-xs text-muted">
+              If the window is still small or blank,{" "}
+              <a
+                href={liveViewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gold hover:underline"
+              >
+                open Shiply sign-in in a new tab
+              </a>{" "}
+              for a full-size view.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <form

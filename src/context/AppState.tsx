@@ -42,6 +42,7 @@ interface AppStateValue {
   importShiplyJobs: (jobs: RawJob[]) => Promise<void>;
   disconnectShiply: () => Promise<void>;
   refreshShiply: () => Promise<void>;
+  syncFromShiply: () => Promise<number>;
   market: AnalysedMarket;
   selectedIds: string[];
   toggleSelected: (id: string) => void;
@@ -182,6 +183,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       lastSyncedAt: new Date().toISOString(),
       lastError: null,
       jobCount: jobs.length,
+      hasContext: connection?.hasContext ?? false,
     });
     if (jobs.length > 0) setBook("shiply");
   };
@@ -202,6 +204,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     ]);
     setConnection(nextConnection);
     setLiveJobs(jobs);
+    if (jobs.length > 0) setBook("shiply");
+  };
+
+  const syncFromShiply = async () => {
+    const res = await fetch("/api/shiply/sync", { method: "POST" });
+    const body = (await res.json()) as { error?: string; jobCount?: number };
+    if (!res.ok) throw new Error(body.error ?? "Could not refresh Shiply.");
+    await refreshShiply();
+    return body.jobCount ?? 0;
   };
 
   const persist = (key: string, ids: string[]) => {
@@ -273,6 +284,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       importShiplyJobs,
       disconnectShiply,
       refreshShiply,
+      syncFromShiply,
       market,
       selectedIds,
       toggleSelected,

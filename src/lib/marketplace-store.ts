@@ -9,6 +9,7 @@ export interface MarketplaceConnection {
   lastSyncedAt: string | null;
   lastError: string | null;
   jobCount: number;
+  hasContext: boolean;
 }
 
 interface ConnectionRow {
@@ -17,6 +18,8 @@ interface ConnectionRow {
   last_synced_at: string | null;
   last_error: string | null;
   job_count: number;
+  browserbase_context_id?: string | null;
+  browserbase_session_id?: string | null;
 }
 
 interface JobRow {
@@ -86,7 +89,7 @@ export async function fetchConnection(
   const supabase = createBrowserSupabase();
   const { data, error } = await supabase
     .from("marketplace_connections")
-    .select("source, status, last_synced_at, last_error, job_count")
+    .select("source, status, last_synced_at, last_error, job_count, browserbase_context_id")
     .eq("user_id", userId)
     .eq("source", source)
     .maybeSingle();
@@ -99,6 +102,7 @@ export async function fetchConnection(
     lastSyncedAt: row.last_synced_at,
     lastError: row.last_error,
     jobCount: row.job_count,
+    hasContext: Boolean(row.browserbase_context_id),
   };
 }
 

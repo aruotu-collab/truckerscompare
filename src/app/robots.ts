@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/sign-in", "/auth/", "/connect"],
+      disallow: ["/sign-in", "/auth/", "/connect", "/api/"],
     },
     sitemap: "https://truckerscompare.com/sitemap.xml",
     host: "https://truckerscompare.com",
