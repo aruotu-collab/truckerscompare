@@ -94,18 +94,31 @@ function dateWindows(text: string): { collection: string; delivery: string } {
   return { collection: "", delivery: "" };
 }
 
+function usableTitle(value: string): string {
+  const t = value.replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  if (/dimensions and sometimes a photo|photo of the goods|include dimensions/i.test(t)) {
+    return "";
+  }
+  return t;
+}
+
 function titleFrom(html: string, fallback: string): string {
   const og = html.match(
     /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
   );
   if (og?.[1]) {
-    return og[1].replace(/\s*[|\-–].*shiply.*/i, "").trim();
+    const fromOg = usableTitle(og[1].replace(/\s*[|\-–].*shiply.*/i, ""));
+    if (fromOg) return fromOg;
   }
   const heading = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   if (heading) {
-    return heading[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const fromH1 = usableTitle(
+      heading[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " "),
+    );
+    if (fromH1) return fromH1;
   }
-  return fallback.trim();
+  return usableTitle(fallback);
 }
 
 export function categoryFromTitle(title: string): string {
@@ -143,7 +156,7 @@ export function cargoNotes(html: string, title: string): string {
   );
   const text = htmlToVisibleText(html);
   const section = text.match(
-    /(?:items?(?:\s+to\s+(?:be\s+)?(?:moved|transported|shipped))?|item list|listing details|about this listing|shipment details|what needs (?:to be )?transport(?:ed)?)[:\s]+(.{12,800}?)(?=current quotes|place quote|questions from transport|notify me if other|similar listings)/i,
+    /(?:item list|listing details|about this listing|shipment details|items to be (?:moved|transported|shipped)|what needs (?:to be )?transport(?:ed)?)[:\s]+(.{12,800}?)(?=current quotes|place quote|questions from transport|notify me if other|similar listings)/i,
   );
   const raw = (section?.[1] || (og?.[1] ? decodeMeta(og[1]) : ""))
     .replace(/\s+/g, " ")
@@ -155,6 +168,9 @@ export function cargoNotes(html: string, title: string): string {
     .replace(/\s+place (?:a )?quote.*$/i, "")
     .trim();
   if (!cleaned || cleaned.toLowerCase() === title.trim().toLowerCase()) return "";
+  if (/dimensions and sometimes a photo|photo of the goods|include dimensions/i.test(cleaned)) {
+    return "";
+  }
   return cleaned.slice(0, 500);
 }
 

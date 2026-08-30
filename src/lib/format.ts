@@ -98,6 +98,17 @@ export function routeLabel(pickup: string, delivery: string): string {
 
 const GENERIC_LOAD = /^(general|removal|vehicle|parcels|furniture|machinery|palletised goods)$/i;
 
+const JUNK_LOAD =
+  /dimensions and sometimes a photo|sometimes a photo of the goods|add a photo|include dimensions|describe the goods|what you are sending|item list|listing details/i;
+
+export function isJunkLoadText(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return true;
+  if (GENERIC_LOAD.test(t)) return true;
+  if (JUNK_LOAD.test(t)) return true;
+  return false;
+}
+
 export function cargoFromListingUrl(url: string): string {
   try {
     const parts = new URL(url).pathname.split("/").filter(Boolean);
@@ -118,13 +129,12 @@ export function loadLabel(job: {
   const description = job.description.replace(/\s+/g, " ").trim();
   const category = job.category.replace(/\s+/g, " ").trim();
   const fromUrl = job.listingUrl ? cargoFromListingUrl(job.listingUrl) : "";
-  const descriptionIsGeneric =
-    !description || description.toLowerCase() === category.toLowerCase() || GENERIC_LOAD.test(description);
-
-  if (!descriptionIsGeneric) return description;
-  if (fromUrl && (descriptionIsGeneric || GENERIC_LOAD.test(category))) return fromUrl;
-  if (description) return description;
-  return category || "Load not given";
+  if (!isJunkLoadText(description) && description.toLowerCase() !== category.toLowerCase()) {
+    return description;
+  }
+  if (fromUrl && !isJunkLoadText(fromUrl)) return fromUrl;
+  if (!isJunkLoadText(category) && category.toLowerCase() !== "general") return category;
+  return fromUrl || "Load not given";
 }
 
 export function loadHeadline(job: {

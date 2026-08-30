@@ -11,7 +11,7 @@ import {
   runShiplyLocalSearch,
   type ShiplySearchQuery,
 } from "./shiply-search";
-import { cargoFromListingUrl } from "./format";
+import { cargoFromListingUrl, isJunkLoadText } from "./format";
 import type { RawJob } from "./types";
 
 export const SHIPLY_LOGIN = "https://www.shiply.com/users/login";
@@ -241,12 +241,20 @@ export async function extractVisibleJobs(
     if (revenue) withBudget += 1;
 
     const fromUrl = cargoFromListingUrl(row.listingUrl);
+    const searchTitle = isJunkLoadText(row.title) ? "" : row.title;
+    const parsedTitle = detail?.title && !isJunkLoadText(detail.title) ? detail.title : "";
+    const parsedNotes =
+      detail?.description && !isJunkLoadText(detail.description) ? detail.description : "";
+    const load = parsedNotes || parsedTitle || searchTitle || fromUrl;
     const item: ImportedListing = {
       externalId: row.listingUrl.split("/").filter(Boolean).pop() || row.listingUrl,
       listingUrl: row.listingUrl,
       pickupCity,
       deliveryCity,
-      category: detail?.category || row.title || fromUrl,
+      category:
+        detail?.category && !isJunkLoadText(detail.category)
+          ? detail.category
+          : load || "General",
       revenue,
       highestBid: detail?.highestBid || revenue,
       weightKg: detail?.weightKg ?? null,
@@ -254,7 +262,7 @@ export async function extractVisibleJobs(
       deliveryWindow: detail?.deliveryWindow,
       quoteCount: detail?.quoteCount || row.quotes,
       postedMinutesAgo: parsePosted(row.date),
-      description: detail?.description || detail?.title || row.title || fromUrl,
+      description: load,
       listedMiles: row.listedMiles,
     };
     const job = listingToJob(item, jobs.length);
