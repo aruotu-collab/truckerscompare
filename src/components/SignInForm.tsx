@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/Auth";
-import { AUTH_NEXT_COOKIE, isEmail, safeNextPath } from "@/lib/auth";
+import { AUTH_NEXT_COOKIE, displayNameFromEmail, isEmail, safeNextPath } from "@/lib/auth";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
 
 const COOLDOWN_SECONDS = 45;
@@ -75,7 +75,7 @@ export function SignInForm() {
     return (
       <div className="rounded-lg border border-line bg-panel p-5">
         <p className="text-sm">
-          Signed in as <span className="text-gold">{user.email}</span>
+          Welcome, <span className="text-gold">{displayNameFromEmail(user.email)}</span>
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Link

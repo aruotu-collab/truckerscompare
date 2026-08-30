@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppState } from "@/context/AppState";
 import { useAuth } from "@/context/Auth";
+import { displayNameFromEmail } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/supabase";
 import { clsx } from "./clsx";
 
@@ -19,6 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { market, selectedIds, profile } = useAppState();
   const { user } = useAuth();
+  const welcomeName = displayNameFromEmail(user?.email);
 
   return (
     <div className="min-h-full bg-ink text-text">
@@ -73,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div>Home {profile.homeCity}</div>
             <div className="pt-1">
               {user ? (
-                <span className="text-text">{user.email}</span>
+                <span className="text-text">Welcome, {welcomeName}</span>
               ) : (
                 <Link href="/sign-in" className="text-gold hover:underline">
                   Sign in
@@ -97,15 +99,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <div className="flex items-center gap-3">
               {user ? (
-                <form action="/auth/sign-out" method="post">
-                  <button
-                    type="submit"
-                    className="text-xs text-muted hover:text-text"
-                    title={user.email ?? "Signed in"}
-                  >
-                    Sign out
-                  </button>
-                </form>
+                <>
+                  <span className="text-xs text-text">Welcome, {welcomeName}</span>
+                  <form action="/auth/sign-out" method="post">
+                    <button
+                      type="submit"
+                      className="text-xs text-muted hover:text-text"
+                    >
+                      Sign out
+                    </button>
+                  </form>
+                </>
               ) : (
                 <Link href="/sign-in" className="text-xs text-gold hover:underline">
                   Sign in

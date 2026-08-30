@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CITIES } from "@/lib/geo";
 import { VEHICLE_LABELS } from "@/lib/profile";
 import { useAppState } from "@/context/AppState";
+import { displayNameFromEmail } from "@/lib/auth";
 import { useAuth } from "@/context/Auth";
 import type { OperatorProfile, VehicleType } from "@/lib/types";
 
@@ -31,7 +32,7 @@ export function ProfileForm() {
       <div className="rounded-lg border border-line bg-panel p-4 text-sm">
         {user ? (
           <p className="mb-3">
-            Signed in as <span className="text-gold">{user.email}</span>
+            Welcome, <span className="text-gold">{displayNameFromEmail(user.email)}</span>
           </p>
         ) : (
           <p className="mb-3 text-muted">
