@@ -77,7 +77,7 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
         </div>
         <label className="block">
           <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
-            Nearest city — used for mile estimates
+            Where you are now — nearest city
           </span>
           <select
             value={profile.startingCity}

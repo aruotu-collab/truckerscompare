@@ -99,7 +99,7 @@ export function ProfileForm() {
             }
           />
         </div>
-        <Field label="Nearest city — used for mile estimates">
+        <Field label="Where you are now — nearest city">
           <CitySelect
             value={profile.startingCity}
             onChange={(v) => update("startingCity", v)}
