@@ -1,7 +1,25 @@
 import type { ReactNode } from "react";
+import { sourceChipClass, sourceLabel } from "@/lib/marketplaces";
 import type { AnalysedJob, JobSource, ScoreBand, WinnerKind } from "@/lib/types";
-import { bandLabel, gbp, winnerLabel } from "@/lib/format";
+import { bandLabel, gbp, highestBidOf, winnerLabel } from "@/lib/format";
 import { clsx } from "./clsx";
+
+export function MarketplaceBids({
+  job,
+}: {
+  job: Pick<AnalysedJob, "source" | "revenue" | "highestBid" | "quoteCount">;
+}) {
+  const high = highestBidOf(job);
+  return (
+    <div>
+      <div className="tabular">{gbp(job.revenue)}</div>
+      {high ? <div className="text-[11px] text-muted">Highest {gbp(high)}</div> : null}
+      {job.source === "Shiply" ? (
+        <div className="text-[11px] text-muted">{job.quoteCount} quotes</div>
+      ) : null}
+    </div>
+  );
+}
 
 export function OpenOnMarketplace({
   source,
@@ -101,6 +119,26 @@ export function BandPill({ band }: { band: ScoreBand }) {
   return (
     <span className={clsx("rounded-full border px-2 py-0.5 text-[11px] tracking-wide uppercase", tone)}>
       {bandLabel(band)}
+    </span>
+  );
+}
+
+export function SourceChip({
+  source,
+  className,
+}: {
+  source: JobSource;
+  className?: string;
+}) {
+  return (
+    <span
+      className={clsx(
+        "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+        sourceChipClass(source),
+        className,
+      )}
+    >
+      {sourceLabel(source)}
     </span>
   );
 }

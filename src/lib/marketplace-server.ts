@@ -70,9 +70,20 @@ export async function saveLiveJobs(
     .eq("source", source);
   if (delError) throw delError;
   if (jobs.length > 0) {
-    const { error } = await supabase
-      .from("marketplace_jobs")
-      .insert(jobs.map((job) => jobToRow(userId, job)));
-    if (error) throw error;
+    const rows = jobs.map((job) => jobToRow(userId, job));
+    const { error } = await supabase.from("marketplace_jobs").insert(rows);
+    if (error && /highest_bid/i.test(error.message)) {
+      const { error: retry } = await supabase
+        .from("marketplace_jobs")
+        .insert(
+          rows.map((row) => {
+            const { highest_bid: _dropped, ...rest } = row;
+            return rest;
+          }),
+        );
+      if (retry) throw retry;
+    } else if (error) {
+      throw error;
+    }
   }
 }

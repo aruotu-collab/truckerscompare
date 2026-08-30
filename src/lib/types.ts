@@ -6,7 +6,12 @@ export type VehicleType =
   | "artic"
   | "car_transporter";
 
-export type JobSource = "Shiply" | "uShip" | "Courier Exchange" | "Returnloads";
+export type JobSource =
+  | "Shiply"
+  | "uShip"
+  | "Courier Exchange"
+  | "Returnloads"
+  | "Man and Van";
 
 export type ScoreBand = "exceptional" | "strong" | "average" | "weak" | "poor";
 
@@ -67,6 +72,7 @@ export interface RawJob {
   category: string;
   vehicleRequired: VehicleType;
   revenue: number;
+  highestBid?: number | null;
   weightKg: number | null;
   collectionWindow: string;
   deliveryWindow: string;
@@ -84,6 +90,7 @@ export interface CostBreakdown {
   driverTime: number;
   fees: number;
   tolls: number;
+  helper: number;
   total: number;
 }
 

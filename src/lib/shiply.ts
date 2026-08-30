@@ -18,6 +18,7 @@ export interface ImportedListing {
   category?: string;
   vehicleRequired?: string;
   revenue: number;
+  highestBid?: number | null;
   weightKg?: number | null;
   collectionWindow?: string;
   deliveryWindow?: string;
@@ -60,6 +61,10 @@ export function listingToJob(item: ImportedListing, index: number): RawJob | str
     category: item.category?.trim() || "General",
     vehicleRequired: vehicleOf(item.vehicleRequired),
     revenue,
+    highestBid: (() => {
+      const high = Number(item.highestBid);
+      return Number.isFinite(high) && high >= revenue ? high : revenue;
+    })(),
     weightKg:
       item.weightKg == null || item.weightKg === undefined
         ? null

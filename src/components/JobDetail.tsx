@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useAppState } from "@/context/AppState";
-import { profitAtQuote, recommendedQuote } from "@/lib/costs";
 import { jobById } from "@/lib/engine";
 import {
   decisionBoundary,
@@ -16,23 +15,30 @@ import {
   betterThan,
   confidenceLabel,
   gbp,
+  highestBidOf,
   hoursLabel,
+  loadHeadline,
+  loadLabel,
   marketPriceLabel,
   milesLabel,
   normalizeJobId,
   minutesLabel,
   postedLabel,
   routeLabel,
+  vehicleLabel,
 } from "@/lib/format";
-import { BandPill, JobFlags, Metric, Money, OpenOnMarketplace, ScoreRing, WinnerChip } from "./ui";
+import { QuoteDecision } from "./QuoteDecision";
+import { BandPill, JobFlags, Metric, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 import { clsx } from "./clsx";
+
+type DetailTab = "summary" | "quote" | "fit";
 
 export function JobDetail() {
   const id = normalizeJobId(useParams<{ id: string | string[] }>().id);
   const { market, profile, selectedIds, toggleSelected, toggleSaved, savedIds, dismiss } =
     useAppState();
+  const [tab, setTab] = useState<DetailTab>("summary");
   const job = jobById(market.jobs, id);
-  const [quote, setQuote] = useState(job?.revenue ?? 0);
 
   if (!job) {
     return (
@@ -45,9 +51,7 @@ export function JobDetail() {
     );
   }
 
-  const sim = profitAtQuote(job, quote, profile.marketplaceFeePercent);
   const rival = market.jobs.find((j) => j.id !== job.id && j.score >= job.score - 8);
-  const floors = [job.costs.total, job.costs.total + 50, job.costs.total + 100, job.costs.total + 150, job.costs.total + 200];
 
   return (
     <div className="space-y-6">
@@ -59,13 +63,20 @@ export function JobDetail() {
           <h1 className="mt-2 text-2xl font-medium">
             {routeLabel(job.pickupCity, job.deliveryCity)}
           </h1>
+          <p className="mt-1 text-sm">{loadHeadline(job)}</p>
           <p className="mt-1 text-sm text-muted">
-            {job.source} · {job.category} · Posted {postedLabel(job.postedMinutesAgo)}
+            {job.category}
+            {job.collectionWindow && job.collectionWindow !== "Window not given"
+              ? ` · Collect ${job.collectionWindow}`
+              : ` · Posted ${postedLabel(job.postedMinutesAgo)}`}
             {job.source === "Shiply"
-              ? ` · ${job.quoteCount} quotes · lowest bid ${gbp(job.revenue)}`
+              ? ` · ${job.quoteCount} quotes · lowest ${gbp(job.revenue)}${
+                  highestBidOf(job) ? ` · highest ${gbp(highestBidOf(job)!)}` : ""
+                }`
               : ` · ${job.quoteCount} quotes`}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
+            <SourceChip source={job.source} />
             {job.winnerLabels.map((w) => (
               <WinnerChip key={w} kind={w} />
             ))}
@@ -133,6 +144,11 @@ export function JobDetail() {
         >
           <Money value={job.revenue} />
         </Metric>
+        {highestBidOf(job) ? (
+          <Metric label="Highest bid" hint="Current top live quote on Shiply">
+            <Money value={highestBidOf(job)!} />
+          </Metric>
+        ) : null}
         <Metric
           label="Estimated profit"
           hint={`${job.profit >= market.market.medianProfit ? "+" : "−"}${gbp(Math.abs(job.profit - market.market.medianProfit))} vs today's median`}
@@ -146,6 +162,51 @@ export function JobDetail() {
           {milesLabel(job.deadMiles)}
         </Metric>
       </div>
+
+      <div className="sticky top-14 z-10 -mx-4 border-y border-line bg-ink/95 px-4 backdrop-blur md:-mx-6 md:px-6">
+        <div className="flex gap-1 overflow-x-auto py-2">
+          {(
+            [
+              ["summary", "Summary"],
+              ["quote", "What-if quote"],
+              ["fit", "Fit & onward"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={clsx(
+                "shrink-0 rounded-md px-3 py-1.5 text-sm",
+                tab === key ? "bg-gold text-ink" : "text-muted hover:text-text",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "summary" ? (
+      <>
+      <section className="rounded-lg border border-line bg-panel p-4">
+        <h2 className="text-sm font-medium">What you are carrying</h2>
+        <p className="mt-2 text-sm leading-6">{loadLabel(job)}</p>
+        <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+          <Row label="Category" value={job.category} />
+          <Row
+            label="Weight"
+            value={job.weightKg != null ? `${job.weightKg} kg` : "Not given"}
+            muted={job.weightKg == null}
+          />
+          <Row label="Vehicle asked" value={vehicleLabel(job.vehicleRequired)} />
+          <Row
+            label="Loading time"
+            value={job.loadingMinutesKnown ? "Known" : "Not given"}
+            muted={!job.loadingMinutesKnown}
+          />
+        </dl>
+      </section>
 
       <section className="rounded-lg border border-line bg-panel p-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -206,12 +267,18 @@ export function JobDetail() {
           </p>
           <dl className="mt-4 space-y-2 text-sm">
             <Row label={marketPriceLabel(job.source)} value={gbp(job.revenue)} />
+            {highestBidOf(job) ? (
+              <Row label="Highest bid" value={gbp(highestBidOf(job)!)} />
+            ) : null}
             <Row label="Fuel" value={`− ${gbp(job.costs.fuel)}`} muted />
             <Row label="Vehicle running" value={`− ${gbp(job.costs.vehicle)}`} muted />
             <Row label="of which dead-mile cost" value={gbp(job.costs.deadMile)} muted />
             <Row label="Driver time" value={`− ${gbp(job.costs.driverTime)}`} muted />
             <Row label="Marketplace fees" value={`− ${gbp(job.costs.fees)}`} muted />
             <Row label="Tolls (est.)" value={`− ${gbp(job.costs.tolls)}`} muted />
+            {job.costs.helper > 0 ? (
+              <Row label="Helper" value={`− ${gbp(job.costs.helper)}`} muted />
+            ) : null}
             <Row label="Estimated real profit" value={gbp(job.profit)} gold />
             <Row label="Margin" value={`${Math.round(job.margin * 100)}%`} />
             <Row label="£ / mile" value={gbp(job.profitPerMile, 2)} />
@@ -246,7 +313,15 @@ export function JobDetail() {
           </p>
         </div>
       </section>
+      </>
+      ) : null}
 
+      {tab === "quote" ? (
+        <QuoteDecision key={job.id} job={job} book={market.jobs} profile={profile} />
+      ) : null}
+
+      {tab === "fit" ? (
+      <>
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-line bg-panel p-4">
           <h2 className="text-sm font-medium">Why this ranks here</h2>
@@ -312,50 +387,16 @@ export function JobDetail() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-line bg-panel p-4">
-          <h2 className="text-sm font-medium">Onward work at {job.deliveryCity}</h2>
-          <p className="mt-2 text-sm capitalize text-gold">{job.onward.rating} potential</p>
-          <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Jobs within 25 miles" value={String(job.onward.jobsWithin25)} />
-            <Row label="Strong or better" value={String(job.onward.strongOrBetter)} />
-            <Row label="Exceptional" value={String(job.onward.exceptional)} />
-            <Row label="Average pickup" value={milesLabel(job.onward.averagePickupMiles)} />
-            <Row label="Best onward profit" value={gbp(job.onward.bestOnwardProfit)} />
-          </dl>
-        </div>
-
-        <div className="rounded-lg border border-line bg-panel p-4">
-          <h2 className="text-sm font-medium">What-if quote</h2>
-          <p className="mt-1 text-xs text-muted">
-            Change the quote. Rank is approximate against the current book.
-          </p>
-          <input
-            type="range"
-            min={Math.round(job.costs.total)}
-            max={Math.round(job.revenue * 1.35)}
-            value={quote}
-            onChange={(e) => setQuote(Number(e.target.value))}
-            className="mt-4 w-full"
-          />
-          <div className="mt-2 text-sm tabular">Quote {gbp(quote)}</div>
-          <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Profit" value={gbp(sim.profit)} gold />
-            <Row label="£/hour" value={gbp(sim.profitPerHour)} />
-            <Row label="Margin" value={`${Math.round(sim.margin * 100)}%`} />
-          </dl>
-          <p className="mt-3 text-xs text-muted">
-            Break-even {gbp(job.costs.total)}. Suggested quote {gbp(recommendedQuote(job, profile))}{" "}
-            to clear your £/hour and minimum profit.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted">
-            {floors.map((n) => (
-              <span key={n} className="rounded-sm border border-line px-1.5 py-0.5 tabular">
-                @ {gbp(n)} → {gbp(n - job.costs.total + job.costs.fees)}*
-              </span>
-            ))}
-          </div>
-        </div>
+      <section className="rounded-lg border border-line bg-panel p-4">
+        <h2 className="text-sm font-medium">Onward work at {job.deliveryCity}</h2>
+        <p className="mt-2 text-sm capitalize text-gold">{job.onward.rating} potential</p>
+        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          <Row label="Jobs within 25 miles" value={String(job.onward.jobsWithin25)} />
+          <Row label="Strong or better" value={String(job.onward.strongOrBetter)} />
+          <Row label="Exceptional" value={String(job.onward.exceptional)} />
+          <Row label="Average pickup" value={milesLabel(job.onward.averagePickupMiles)} />
+          <Row label="Best onward profit" value={gbp(job.onward.bestOnwardProfit)} />
+        </dl>
       </section>
 
       <section className="rounded-lg border border-line bg-panel p-4">
@@ -370,6 +411,8 @@ export function JobDetail() {
           {job.description}
         </p>
       </section>
+      </>
+      ) : null}
     </div>
   );
 }

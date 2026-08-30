@@ -5,10 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useAppState } from "@/context/AppState";
 import { compareTradeoff, vsHeadline } from "@/lib/explanations";
-import { gbp, hoursLabel, jobPath, milesLabel, minutesLabel, routeLabel } from "@/lib/format";
+import { gbp, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minutesLabel, routeLabel } from "@/lib/format";
 import type { AnalysedJob } from "@/lib/types";
 import { clsx } from "./clsx";
-import { BandPill, OpenOnMarketplace, ScoreRing } from "./ui";
+import { BandPill, OpenOnMarketplace, ScoreRing, SourceChip } from "./ui";
 
 export function CompareView() {
   const params = useSearchParams();
@@ -75,6 +75,12 @@ export function CompareView() {
                   <Link href={jobPath(job.id)} className="hover:text-gold">
                     {routeLabel(job.pickupCity, job.deliveryCity)}
                   </Link>
+                  <div className="mt-1 text-xs font-normal text-muted">
+                    {loadHeadline(job)}
+                  </div>
+                  <div className="mt-2">
+                    <SourceChip source={job.source} />
+                  </div>
                   <div className="mt-2">
                     <ScoreRing score={job.score} band={job.band} size="sm" />
                   </div>
@@ -115,6 +121,7 @@ export function CompareView() {
         <h2 className="mt-1 text-lg font-medium">
           {routeLabel(winner.pickupCity, winner.deliveryCity)}
         </h2>
+        <p className="mt-1 text-sm text-muted">{loadHeadline(winner)}</p>
         <p className="mt-3 max-w-3xl text-sm leading-6">{why}</p>
         <p className="mt-3 text-xs text-muted">
           The score does not override a real-life constraint. If you must finish
@@ -145,7 +152,13 @@ function VsPanel({
           )}
         >
           <div className="flex items-center justify-between">
-            <div className="font-medium">{routeLabel(job.pickupCity, job.deliveryCity)}</div>
+            <div>
+              <div className="font-medium">{routeLabel(job.pickupCity, job.deliveryCity)}</div>
+              <div className="mt-0.5 text-xs text-muted">{loadHeadline(job)}</div>
+              <div className="mt-2">
+                <SourceChip source={job.source} />
+              </div>
+            </div>
             <BandPill band={job.band} />
           </div>
           <ul className="mt-3 space-y-1 text-sm">
@@ -174,6 +187,11 @@ function rows(jobs: AnalysedJob[]) {
 
   return [
     pack(
+      "Carrying",
+      jobs.map((j) => loadHeadline(j)),
+      jobs.map(() => false),
+    ),
+    pack(
       "Score",
       jobs.map((j) => String(j.score)),
       best(jobs.map((j) => j.score)),
@@ -183,6 +201,15 @@ function rows(jobs: AnalysedJob[]) {
       jobs.map((j) => gbp(j.revenue)),
       best(jobs.map((j) => j.revenue)),
     ),
+    ...(jobs.some((j) => highestBidOf(j))
+      ? [
+          pack(
+            "Highest bid",
+            jobs.map((j) => (highestBidOf(j) ? gbp(highestBidOf(j)!) : "—")),
+            best(jobs.map((j) => highestBidOf(j) ?? 0)),
+          ),
+        ]
+      : []),
     pack(
       "Profit",
       jobs.map((j) => gbp(j.profit)),

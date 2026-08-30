@@ -8,13 +8,16 @@ import {
   gbp,
   hoursLabel,
   jobPath,
+  loadHeadline,
+  loadLabel,
   marketPriceLabel,
   milesLabel,
   routeLabel,
 } from "@/lib/format";
+import { JOB_SOURCES } from "@/lib/marketplaces";
 import type { AnalysedJob, JobSource } from "@/lib/types";
 import { clsx } from "./clsx";
-import { BandPill, JobFlags, OpenOnMarketplace, ScoreRing, WinnerChip } from "./ui";
+import { BandPill, JobFlags, MarketplaceBids, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
 type SortKey =
   | "score"
@@ -51,7 +54,8 @@ export function Opportunities() {
       if (source !== "all" && job.source !== source) return false;
       if (search) {
         const q = search.toLowerCase();
-        const hay = `${job.pickupCity} ${job.deliveryCity} ${job.category} ${job.source}`.toLowerCase();
+        const hay =
+          `${job.pickupCity} ${job.deliveryCity} ${job.category} ${job.description} ${loadLabel(job)} ${job.source}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -107,7 +111,7 @@ export function Opportunities() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search route or category"
+          placeholder="Search route or load"
           className="rounded-md border border-line bg-ink px-2 py-1.5 text-sm outline-none focus:border-gold/50 md:col-span-2"
         />
         <NumFilter label="Score +" value={scoreMin} onChange={setScoreMin} />
@@ -121,10 +125,11 @@ export function Opportunities() {
           className="rounded-md border border-line bg-ink px-2 py-1.5 text-sm"
         >
           <option value="all">All sources</option>
-          <option value="Shiply">Shiply</option>
-          <option value="uShip">uShip</option>
-          <option value="Courier Exchange">Courier Exchange</option>
-          <option value="Returnloads">Returnloads</option>
+          {JOB_SOURCES.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
         </select>
         <label className="flex items-center gap-2 text-xs text-muted">
           <input
@@ -211,7 +216,9 @@ export function Opportunities() {
                   <Link href={jobPath(job.id)} className="hover:text-gold">
                     {routeLabel(job.pickupCity, job.deliveryCity)}
                   </Link>
+                  <div className="mt-0.5 text-xs text-muted">{loadHeadline(job)}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <SourceChip source={job.source} />
                     {job.winnerLabels.map((w) => (
                       <WinnerChip key={w} kind={w} />
                     ))}
@@ -229,17 +236,16 @@ export function Opportunities() {
                   </div>
                 </td>
                 <td className="px-3 py-2 tabular text-gold">{gbp(job.profit)}</td>
-                <td className="px-3 py-2 tabular">
-                  <div>{gbp(job.revenue)}</div>
-                  {job.source === "Shiply" ? (
-                    <div className="text-[11px] text-muted">{job.quoteCount} quotes</div>
-                  ) : null}
+                <td className="px-3 py-2">
+                  <MarketplaceBids job={job} />
                 </td>
                 <td className="px-3 py-2 tabular">{gbp(job.profitPerHour)}</td>
                 <td className="px-3 py-2 tabular">{milesLabel(job.deadMiles)}</td>
                 <td className="px-3 py-2 tabular">{hoursLabel(job.totalHours)}</td>
                 <td className="px-3 py-2 capitalize text-muted">{job.onward.rating}</td>
-                <td className="px-3 py-2 text-muted">{job.source}</td>
+                <td className="px-3 py-2">
+                  <SourceChip source={job.source} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -290,7 +296,9 @@ function MobileCard({
           <Link href={jobPath(job.id)} className="text-base font-medium">
             {routeLabel(job.pickupCity, job.deliveryCity)}
           </Link>
+          <div className="mt-0.5 text-xs text-muted">{loadHeadline(job)}</div>
           <div className="mt-1 flex flex-wrap gap-1">
+            <SourceChip source={job.source} />
             {job.winnerLabels.map((w) => (
               <WinnerChip key={w} kind={w} />
             ))}
@@ -305,7 +313,7 @@ function MobileCard({
         </div>
         <div>
           <div className="text-[11px] text-muted">{marketPriceLabel(job.source)}</div>
-          <div className="tabular">{gbp(job.revenue)}</div>
+          <MarketplaceBids job={job} />
         </div>
         <div>
           <div className="text-[11px] text-muted">Dead</div>

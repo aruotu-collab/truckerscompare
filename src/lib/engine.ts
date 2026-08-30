@@ -1,4 +1,4 @@
-import { costJob } from "./costs";
+import { costJob, fulfilmentCost, type JobScenario } from "./costs";
 import { generateDemoJobs } from "./demo-jobs";
 import { roadMiles, roadMinutes } from "./geo";
 import type {
@@ -540,6 +540,44 @@ function round1(n: number): number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+export function simulateOpportunity(
+  job: AnalysedJob,
+  book: AnalysedJob[],
+  profile: OperatorProfile,
+  scenario: JobScenario,
+) {
+  const quote = scenario.quote && scenario.quote > 0 ? scenario.quote : job.revenue;
+  const economics = costJob(job, profile, { ...scenario, quote });
+  const others = book.filter((row) => row.id !== job.id);
+  const profits = [...others.map((row) => row.profit), economics.profit];
+  const perHours = [...others.map((row) => row.profitPerHour), economics.profitPerHour];
+  const deads = [...others.map((row) => row.deadMiles), economics.deadMiles];
+  const routes = [...others.map((row) => row.routeFit), economics.routeFit];
+  const marketScore = marketScoreOf(economics, profits, perHours, deads, routes);
+  const { personalScore } = personalScoreOf(
+    job,
+    economics,
+    { ...profile, startingCity: scenario.startingCity || profile.startingCity },
+    job.onward,
+    job.competition,
+  );
+  const score = clamp(Math.round(marketScore * 0.42 + personalScore * 0.58), 1, 99);
+  const rank = 1 + others.filter((row) => row.score > score).length;
+  return {
+    quote,
+    profit: economics.profit,
+    profitPerHour: economics.profitPerHour,
+    margin: economics.margin,
+    hours: economics.totalHours,
+    miles: economics.totalMiles,
+    score,
+    rank,
+    bookSize: book.length,
+    fulfilment: fulfilmentCost(economics.costs),
+    costs: economics.costs,
+  };
 }
 
 export function jobById(jobs: AnalysedJob[], id: string): AnalysedJob | undefined {

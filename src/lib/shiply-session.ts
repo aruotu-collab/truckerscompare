@@ -1,6 +1,12 @@
 import { chromium, type Page } from "playwright-core";
 import { CITIES } from "./geo";
 import { listingToJob, type ImportedListing } from "./shiply";
+import {
+  listingParseIsComplete,
+  parseShiplyListing,
+  type ShiplyListingParse,
+} from "./shiply-quotes";
+import { cargoFromListingUrl } from "./format";
 import type { RawJob } from "./types";
 
 export const SHIPLY_LOGIN = "https://www.shiply.com/users/login";
@@ -84,23 +90,6 @@ function parsePosted(date: string): number {
   return 0;
 }
 
-function budgetFromText(text: string): number {
-  const labelled = text.match(
-    /(?:budget|offering|offer|pay(?:ing)? up to|customer(?:'s)? (?:budget|offer))[^££GBP]{0,64}(?:£|&pound;|GBP)\s?([\d,]+(?:\.\d{1,2})?)/i,
-  );
-  if (labelled) return Number(labelled[1]!.replace(/,/g, ""));
-  const quotes = [
-    ...text.matchAll(/£\s?([\d,]+(?:\.\d{1,2})?)\s+[A-Za-z][A-Za-z0-9_-]+\s+\(/g),
-  ]
-    .map((m) => Number(m[1]!.replace(/,/g, "")))
-    .filter((n) => n >= 15 && n <= 20000);
-  if (quotes.length) return Math.min(...quotes);
-  const amounts = [...text.matchAll(/(?:£|&pound;|GBP)\s?([\d,]+(?:\.\d{1,2})?)/gi)]
-    .map((m) => Number(m[1]!.replace(/,/g, "")))
-    .filter((n) => n >= 20 && n <= 20000);
-  return amounts[0] ?? 0;
-}
-
 async function pageAuthState(page: Page): Promise<{
   signedIn: boolean;
   hint: string;
@@ -143,7 +132,14 @@ async function readSearchRows(page: Page): Promise<SearchRow[]> {
         pickup: cells[1] || "",
         delivery: cells[2] || "",
         date: cells[4] || "",
-        quotes: Number((cells[5] || "").replace(/\D/g, "")) || 0,
+        quotes: (() => {
+          const fifth = Number((cells[5] || "").replace(/\D/g, ""));
+          if (fifth > 0 && fifth < 80) return fifth;
+          for (let i = cells.length - 1; i >= 3; i -= 1) {
+            if (/^\d{1,2}$/.test(cells[i] || "")) return Number(cells[i]);
+          }
+          return 0;
+        })(),
       });
     }
 
@@ -168,10 +164,11 @@ async function readSearchRows(page: Page): Promise<SearchRow[]> {
   });
 }
 
-async function readListingBudget(page: Page, listingUrl: string): Promise<{
-  revenue: number;
-  snippet: string;
-}> {
+async function readListingDetail(
+  page: Page,
+  listingUrl: string,
+  fallbackTitle: string,
+): Promise<ShiplyListingParse> {
   const fetched = await page
     .evaluate(async (href: string) => {
       const res = await fetch(href, { credentials: "include" });
@@ -185,20 +182,15 @@ async function readListingBudget(page: Page, listingUrl: string): Promise<{
     if (/users\/login|account-security/i.test(fetched.html) && /log in|sign in/i.test(text)) {
       throw new ShiplyAuthRequired();
     }
-    const nearby =
-      text.match(/.{0,70}(?:£|&pound;|GBP|budget|quote|offer).{0,70}/i)?.[0] ??
-      text.slice(0, 160);
-    return { revenue: budgetFromText(text), snippet: nearby.trim() };
+    const parsed = parseShiplyListing(fetched.html, fallbackTitle);
+    if (listingParseIsComplete(parsed)) return parsed;
   }
 
   await page.goto(listingUrl, { waitUntil: "domcontentloaded", timeout: 25000 });
   await waitForShiplyReady(page);
   if (isShiplyLogin(page)) throw new ShiplyAuthRequired();
-  const text = (await page.innerText("body").catch(() => "")).replace(/\s+/g, " ");
-  const nearby =
-    text.match(/.{0,70}(?:£|&pound;|GBP|budget|quote|offer).{0,70}/i)?.[0] ??
-    text.slice(0, 160);
-  return { revenue: budgetFromText(text), snippet: nearby.trim() };
+  const html = await page.content();
+  return parseShiplyListing(html, fallbackTitle);
 }
 
 export async function extractVisibleJobs(page: Page): Promise<ShiplyExtract> {
@@ -218,26 +210,32 @@ export async function extractVisibleJobs(page: Page): Promise<ShiplyExtract> {
     if (!pickupCity || !deliveryCity) continue;
     mapped += 1;
 
-    let revenue = 0;
+    let detail: ShiplyListingParse | null = null;
     try {
-      const detail = await readListingBudget(page, row.listingUrl);
-      revenue = detail.revenue;
+      detail = await readListingDetail(page, row.listingUrl, row.title);
       if (!sampleSnippet && detail.snippet) sampleSnippet = detail.snippet;
     } catch (err) {
       if (err instanceof ShiplyAuthRequired) throw err;
     }
+    const revenue = detail?.lowestBid ?? 0;
     if (!revenue) continue;
     withBudget += 1;
 
+    const fromUrl = cargoFromListingUrl(row.listingUrl);
     const item: ImportedListing = {
       externalId: row.listingUrl.split("/").filter(Boolean).pop() || row.listingUrl,
       listingUrl: row.listingUrl,
       pickupCity,
       deliveryCity,
+      category: detail?.category || row.title || fromUrl,
       revenue,
-      quoteCount: row.quotes,
+      highestBid: detail?.highestBid || revenue,
+      weightKg: detail?.weightKg ?? null,
+      collectionWindow: detail?.collectionWindow,
+      deliveryWindow: detail?.deliveryWindow,
+      quoteCount: detail?.quoteCount || row.quotes,
       postedMinutesAgo: parsePosted(row.date),
-      description: row.title,
+      description: detail?.description || detail?.title || row.title || fromUrl,
     };
     const job = listingToJob(item, jobs.length);
     if (typeof job !== "string") jobs.push(job);

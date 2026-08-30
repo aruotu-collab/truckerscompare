@@ -74,10 +74,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {supabaseConfigured() ? "Connected" : "Not configured"}
               </span>
             </div>
-            <div>
-              {market.market.analysed} jobs · {profile.startingCity}
-            </div>
-            <div>Home {profile.homeCity}</div>
+            <Link href="/connect#where-you-are" className="block hover:text-text">
+              <div>
+                {market.market.analysed} jobs · {profile.startingCity}
+              </div>
+              <div>Home {profile.homeCity}</div>
+            </Link>
             <div className="pt-1">
               {user ? (
                 <span className="text-text">Welcome, {welcomeName}</span>
@@ -96,9 +98,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="text-[11px] uppercase tracking-[0.28em] text-gold">TruckersCompare</div>
             </div>
             <div className="hidden text-sm text-muted md:block">
-              Starting <span className="text-text">{profile.startingCity}</span>
-              <span className="mx-2 text-line">/</span>
-              Home <span className="text-text">{profile.homeCity}</span>
+              <Link href="/connect#where-you-are" className="hover:text-text">
+                Starting <span className="text-text">{profile.startingCity}</span>
+                <span className="mx-2 text-line">/</span>
+                Home <span className="text-text">{profile.homeCity}</span>
+              </Link>
               <span className="mx-2 text-line">/</span>
               <span className="tabular">{market.market.analysed} analysed</span>
             </div>

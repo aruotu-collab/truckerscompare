@@ -60,7 +60,10 @@ export async function POST() {
       synced: true,
     });
 
-    return NextResponse.json({ jobCount: extracted.jobs.length });
+    return NextResponse.json({
+      jobCount: extracted.jobs.length,
+      jobs: extracted.jobs,
+    });
   } catch (err) {
     if (err instanceof ShiplyAuthRequired) {
       await saveConnectionMeta(user.id, {

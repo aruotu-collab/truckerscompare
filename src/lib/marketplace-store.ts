@@ -31,6 +31,7 @@ interface JobRow {
   category: string;
   vehicle_required: string;
   revenue: number | string;
+  highest_bid?: number | string | null;
   weight_kg: number | string | null;
   collection_window: string;
   delivery_window: string;
@@ -49,6 +50,7 @@ export function rowToJob(row: JobRow): RawJob {
     category: row.category,
     vehicleRequired: row.vehicle_required as RawJob["vehicleRequired"],
     revenue: Number(row.revenue),
+    highestBid: row.highest_bid == null ? null : Number(row.highest_bid),
     weightKg: row.weight_kg == null ? null : Number(row.weight_kg),
     collectionWindow: row.collection_window,
     deliveryWindow: row.delivery_window,
@@ -72,6 +74,7 @@ export function jobToRow(userId: string, job: RawJob) {
     category: job.category,
     vehicle_required: job.vehicleRequired,
     revenue: job.revenue,
+    highest_bid: job.highestBid && job.highestBid > 0 ? job.highestBid : null,
     weight_kg: job.weightKg,
     collection_window: job.collectionWindow,
     delivery_window: job.deliveryWindow,
@@ -106,20 +109,34 @@ export async function fetchConnection(
   };
 }
 
+const JOB_SELECT =
+  "source, external_id, listing_url, pickup_city, delivery_city, category, vehicle_required, revenue, highest_bid, weight_kg, collection_window, delivery_window, posted_minutes_ago, quote_count, description, loading_minutes_known";
+
+function withoutHighestBid<T extends { highest_bid?: unknown }>(row: T) {
+  const { highest_bid: _dropped, ...rest } = row;
+  return rest;
+}
+
 export async function fetchMarketplaceJobs(
   userId: string,
   source = "Shiply",
 ): Promise<RawJob[]> {
   const supabase = createBrowserSupabase();
-  const { data, error } = await supabase
+  const first = await supabase
     .from("marketplace_jobs")
-    .select(
-      "source, external_id, listing_url, pickup_city, delivery_city, category, vehicle_required, revenue, weight_kg, collection_window, delivery_window, posted_minutes_ago, quote_count, description, loading_minutes_known",
-    )
+    .select(JOB_SELECT)
     .eq("user_id", userId)
     .eq("source", source);
-  if (error) throw error;
-  return ((data as JobRow[]) ?? []).map(rowToJob);
+  const result =
+    first.error && /highest_bid/i.test(first.error.message)
+      ? await supabase
+          .from("marketplace_jobs")
+          .select(JOB_SELECT.replace(", highest_bid", ""))
+          .eq("user_id", userId)
+          .eq("source", source)
+      : first;
+  if (result.error) throw result.error;
+  return ((result.data as JobRow[] | null) ?? []).map(rowToJob);
 }
 
 export async function replaceMarketplaceJobs(
@@ -135,10 +152,16 @@ export async function replaceMarketplaceJobs(
     .eq("source", source);
   if (delError) throw delError;
   if (jobs.length > 0) {
-    const { error } = await supabase
-      .from("marketplace_jobs")
-      .insert(jobs.map((job) => jobToRow(userId, job)));
-    if (error) throw error;
+    const rows = jobs.map((job) => jobToRow(userId, job));
+    const { error } = await supabase.from("marketplace_jobs").insert(rows);
+    if (error && /highest_bid/i.test(error.message)) {
+      const { error: retry } = await supabase
+        .from("marketplace_jobs")
+        .insert(rows.map(withoutHighestBid));
+      if (retry) throw retry;
+    } else if (error) {
+      throw error;
+    }
   }
   const { error: connError } = await supabase.from("marketplace_connections").upsert({
     user_id: userId,

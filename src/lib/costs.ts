@@ -1,7 +1,6 @@
 import { headingDelta, roadMiles, roadMinutes, routePairSource } from "./geo";
 import { vehicleCompatible } from "./profile";
 import type {
-  AnalysedJob,
   CostBreakdown,
   OperatorProfile,
   RawJob,
@@ -42,8 +41,30 @@ function driveLeg(
   };
 }
 
-export function costJob(job: RawJob, profile: OperatorProfile) {
-  const deadhead = driveLeg("deadhead", profile.startingCity, job.pickupCity);
+export type JobScenario = {
+  quote?: number;
+  fuelPricePerLitre?: number;
+  extraTolls?: number;
+  helperCost?: number;
+  waitingMinutes?: number;
+  startingCity?: string;
+};
+
+export const TARGET_MARGIN = 0.32;
+
+export function costJob(
+  job: RawJob,
+  profile: OperatorProfile,
+  scenario: JobScenario = {},
+) {
+  const start = scenario.startingCity || profile.startingCity;
+  const priced: OperatorProfile = {
+    ...profile,
+    startingCity: start,
+    fuelPricePerLitre: scenario.fuelPricePerLitre ?? profile.fuelPricePerLitre,
+  };
+  const quote = scenario.quote && scenario.quote > 0 ? scenario.quote : job.revenue;
+  const deadhead = driveLeg("deadhead", start, job.pickupCity);
   const loaded = driveLeg("loaded", job.pickupCity, job.deliveryCity);
   const home = driveLeg("home", job.deliveryCity, profile.homeCity);
   const legs = [deadhead, loaded, home];
@@ -56,23 +77,25 @@ export function costJob(job: RawJob, profile: OperatorProfile) {
   const pickupMiles = deadhead.miles;
   const loadedMiles = loaded.miles;
   const deliveryToHomeMiles = home.miles;
-  const startToHomeMiles = roadMiles(profile.startingCity, profile.homeCity);
+  const startToHomeMiles = roadMiles(start, profile.homeCity);
   const deadMiles = pickupMiles;
   const totalMiles = pickupMiles + loadedMiles;
   const pickupMinutes = deadhead.minutes;
   const loadedMinutes = loaded.minutes;
   const deliveryToHomeMinutes = home.minutes;
-  const startToHomeMinutes = roadMinutes(profile.startingCity, profile.homeCity);
+  const startToHomeMinutes = roadMinutes(start, profile.homeCity);
   const handling = (job.loadingMinutesKnown ? LOADING_MINUTES : 55) + UNLOADING_MINUTES;
-  const totalHours = (pickupMinutes + loadedMinutes + handling) / 60;
+  const waitingMinutes = Math.max(0, scenario.waitingMinutes ?? 0);
+  const totalHours = (pickupMinutes + loadedMinutes + handling + waitingMinutes) / 60;
 
-  const fuelPerMile = fuelPencePerMile(profile);
+  const fuelPerMile = fuelPencePerMile(priced);
   const fuel = totalMiles * fuelPerMile;
-  const vehicle = totalMiles * profile.runningCostPerMile;
-  const deadMile = deadMiles * (fuelPerMile + profile.runningCostPerMile);
-  const driverTime = totalHours * profile.driverHourlyCost;
-  const fees = job.revenue * (profile.marketplaceFeePercent / 100);
-  const tolls = estimateTolls(loadedMiles, job.pickupCity, job.deliveryCity);
+  const vehicle = totalMiles * priced.runningCostPerMile;
+  const deadMile = deadMiles * (fuelPerMile + priced.runningCostPerMile);
+  const driverTime = totalHours * priced.driverHourlyCost;
+  const fees = quote * (priced.marketplaceFeePercent / 100);
+  const tolls = estimateTolls(loadedMiles, job.pickupCity, job.deliveryCity) + Math.max(0, scenario.extraTolls ?? 0);
+  const helper = Math.max(0, scenario.helperCost ?? 0);
 
   const costs: CostBreakdown = {
     fuel: round2(fuel),
@@ -80,17 +103,18 @@ export function costJob(job: RawJob, profile: OperatorProfile) {
     deadMile: round2(deadMile),
     driverTime: round2(driverTime),
     fees: round2(fees),
-    tolls,
+    tolls: round2(tolls),
+    helper: round2(helper),
     total: 0,
   };
   costs.total = round2(
-    costs.fuel + costs.vehicle + costs.driverTime + costs.fees + costs.tolls,
+    costs.fuel + costs.vehicle + costs.driverTime + costs.fees + costs.tolls + costs.helper,
   );
 
-  const profit = round2(job.revenue - costs.total);
+  const profit = round2(quote - costs.total);
   const profitPerHour = totalHours > 0 ? round2(profit / totalHours) : 0;
   const profitPerMile = totalMiles > 0 ? round2(profit / totalMiles) : 0;
-  const margin = job.revenue > 0 ? profit / job.revenue : 0;
+  const margin = quote > 0 ? profit / quote : 0;
   const towardsHomeMiles = startToHomeMiles - deliveryToHomeMiles;
 
   const vehicleFit = vehicleCompatible(job.vehicleRequired, profile.vehicleType)
@@ -101,7 +125,7 @@ export function costJob(job: RawJob, profile: OperatorProfile) {
 
   const scheduleFit = totalHours <= profile.workingHours ? 5 : 2;
   const routeFit = routeFitScore(
-    profile.startingCity,
+    start,
     profile.homeCity,
     job.pickupCity,
     job.deliveryCity,
@@ -170,35 +194,49 @@ function routeFitScore(
   return clamp(score, 1, 10);
 }
 
-export function breakEvenQuote(job: Pick<AnalysedJob, "costs">): number {
-  return Math.ceil(job.costs.total);
+export function fulfilmentCost(costs: CostBreakdown): number {
+  return round2(costs.total - costs.fees);
+}
+
+export function breakEvenQuote(fulfilment: number, feePercent: number): number {
+  const fee = Math.min(0.4, Math.max(0, feePercent / 100));
+  return Math.ceil(fulfilment / Math.max(0.5, 1 - fee));
 }
 
 export function profitAtQuote(
-  job: Pick<AnalysedJob, "costs" | "totalHours" | "totalMiles">,
+  fulfilment: number,
+  hours: number,
+  miles: number,
   quote: number,
   feePercent: number,
 ) {
   const fees = quote * (feePercent / 100);
-  const total = job.costs.fuel + job.costs.vehicle + job.costs.driverTime + fees + job.costs.tolls;
-  const profit = quote - total;
+  const profit = quote - fulfilment - fees;
   return {
     revenue: quote,
     profit: round2(profit),
-    profitPerHour: job.totalHours > 0 ? round2(profit / job.totalHours) : 0,
-    profitPerMile: job.totalMiles > 0 ? round2(profit / job.totalMiles) : 0,
+    profitPerHour: hours > 0 ? round2(profit / hours) : 0,
+    profitPerMile: miles > 0 ? round2(profit / miles) : 0,
     margin: quote > 0 ? profit / quote : 0,
   };
 }
 
 export function recommendedQuote(
-  job: AnalysedJob,
+  fulfilment: number,
+  hours: number,
   profile: OperatorProfile,
 ): number {
-  const needed =
-    job.costs.total +
-    Math.max(profile.minProfit, profile.targetProfitPerHour * job.totalHours);
-  return Math.ceil(needed / 5) * 5;
+  const fee = Math.min(0.4, Math.max(0, profile.marketplaceFeePercent / 100));
+  const needProfit = Math.max(profile.minProfit, profile.targetProfitPerHour * hours);
+  const forProfit = (fulfilment + needProfit) / Math.max(0.5, 1 - fee);
+  const marginDenom = 1 - fee - TARGET_MARGIN;
+  const forMargin = marginDenom > 0.08 ? fulfilment / marginDenom : forProfit;
+  return Math.ceil(Math.max(forProfit, forMargin) / 5) * 5;
+}
+
+export function quoteLadder(fulfilment: number, feePercent: number, steps = 5): number[] {
+  const start = Math.ceil(breakEvenQuote(fulfilment, feePercent) / 50) * 50;
+  return Array.from({ length: steps }, (_, i) => start + i * 50);
 }
 
 function round2(n: number): number {

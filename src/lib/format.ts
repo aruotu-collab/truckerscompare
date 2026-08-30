@@ -1,4 +1,5 @@
-import type { ConfidenceLevel, JobSource, ScoreBand, WinnerKind } from "./types";
+import { marketplaceKind } from "./marketplaces";
+import type { ConfidenceLevel, JobSource, ScoreBand, VehicleType, WinnerKind } from "./types";
 
 export function gbp(n: number, digits = 0): string {
   return new Intl.NumberFormat("en-GB", {
@@ -89,8 +90,78 @@ export function routeLabel(pickup: string, delivery: string): string {
   return `${pickup} → ${delivery}`;
 }
 
+const GENERIC_LOAD = /^(general|removal|vehicle|parcels|furniture|machinery|palletised goods)$/i;
+
+export function cargoFromListingUrl(url: string): string {
+  try {
+    const parts = new URL(url).pathname.split("/").filter(Boolean);
+    const transport = parts.findIndex((part) => part.toLowerCase() === "transport");
+    const slug = transport >= 0 ? parts[transport + 1] : "";
+    if (!slug || /^[A-Z0-9]{6,}$/i.test(slug)) return "";
+    return decodeURIComponent(slug).replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  } catch {
+    return "";
+  }
+}
+
+export function loadLabel(job: {
+  category: string;
+  description: string;
+  listingUrl?: string | null;
+}): string {
+  const description = job.description.replace(/\s+/g, " ").trim();
+  const category = job.category.replace(/\s+/g, " ").trim();
+  const fromUrl = job.listingUrl ? cargoFromListingUrl(job.listingUrl) : "";
+  const descriptionIsGeneric =
+    !description || description.toLowerCase() === category.toLowerCase() || GENERIC_LOAD.test(description);
+
+  if (!descriptionIsGeneric) return description;
+  if (fromUrl && (descriptionIsGeneric || GENERIC_LOAD.test(category))) return fromUrl;
+  if (description) return description;
+  return category || "Load not given";
+}
+
+export function loadHeadline(job: {
+  category: string;
+  description: string;
+  listingUrl?: string | null;
+}): string {
+  const first = loadLabel(job).split(/[.\n•]/)[0]?.trim() ?? "";
+  if (first.length <= 72) return first || job.category;
+  const cut = first.slice(0, 69);
+  const atWord = cut.lastIndexOf(" ");
+  return `${(atWord > 40 ? cut.slice(0, atWord) : cut).trimEnd()}…`;
+}
+
+export function vehicleLabel(type: VehicleType): string {
+  switch (type) {
+    case "van":
+      return "Van";
+    case "luton":
+      return "Luton";
+    case "7.5t":
+      return "7.5t";
+    case "18t":
+      return "18t";
+    case "artic":
+      return "Artic";
+    case "car_transporter":
+      return "Car transporter";
+  }
+}
+
 export function marketPriceLabel(source: JobSource): string {
-  return source === "Shiply" ? "Lowest bid" : "Budget";
+  return marketplaceKind(source) === "quotes" ? "Lowest bid" : "Budget";
+}
+
+export function highestBidOf(job: {
+  source: JobSource;
+  revenue: number;
+  highestBid?: number | null;
+}): number | null {
+  if (job.source !== "Shiply") return null;
+  const high = job.highestBid ?? 0;
+  return high > job.revenue ? high : null;
 }
 
 export function jobPath(id: string): string {

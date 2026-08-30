@@ -7,15 +7,17 @@ import { combinationWhy } from "@/lib/explanations";
 import {
   betterThan,
   gbp,
+  highestBidOf,
   hoursLabel,
   jobPath,
+  loadHeadline,
   marketPriceLabel,
   milesLabel,
   routeLabel,
   winnerLabel,
 } from "@/lib/format";
 import type { AnalysedJob, CombinationPlan, WinnerKind } from "@/lib/types";
-import { BandPill, Money, OpenOnMarketplace, ScoreRing, WinnerChip } from "./ui";
+import { BandPill, MarketplaceBids, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
 export function Overview() {
   const { market } = useAppState();
@@ -124,13 +126,15 @@ function WinnerJobCard({
       <Link href={jobPath(job.id)} className="block">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <WinnerChip kind={kind} />
+            <div className="flex flex-wrap items-center gap-2">
+              <WinnerChip kind={kind} />
+              <SourceChip source={job.source} />
+            </div>
             <div className="mt-2 text-base font-medium">
               {routeLabel(job.pickupCity, job.deliveryCity)}
             </div>
-            <div className="mt-1 text-xs text-muted">
-              {job.source} · {job.category}
-            </div>
+            <div className="mt-1 text-sm">{loadHeadline(job)}</div>
+            <div className="mt-1 text-xs text-muted">{job.category}</div>
           </div>
           <ScoreRing score={job.score} band={job.band} />
         </div>
@@ -149,10 +153,7 @@ function WinnerJobCard({
           </div>
           <div>
             <div className="text-[11px] text-muted">{marketPriceLabel(job.source)}</div>
-            <span className="tabular">{gbp(job.revenue)}</span>
-            {job.source === "Shiply" ? (
-              <div className="text-[11px] text-muted">{job.quoteCount} quotes</div>
-            ) : null}
+            <MarketplaceBids job={job} />
           </div>
         </div>
         <div className="mt-3 text-[11px] text-muted">
@@ -240,11 +241,14 @@ function Bucket({
                     </span>
                     <span className="tabular text-sm text-muted">{job.score}</span>
                   </div>
+                  <div className="mt-0.5 text-[11px] text-muted">{loadHeadline(job)}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+                    <SourceChip source={job.source} />
                     <BandPill band={job.band} />
                     <span className="tabular">{gbp(job.profit)} profit</span>
                     <span className="tabular">
                       {marketPriceLabel(job.source)} {gbp(job.revenue)}
+                      {highestBidOf(job) ? ` · Highest ${gbp(highestBidOf(job)!)}` : ""}
                     </span>
                   </div>
                 </Link>

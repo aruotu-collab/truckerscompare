@@ -42,6 +42,7 @@ interface AppStateValue {
   importShiplyJobs: (jobs: RawJob[]) => Promise<void>;
   disconnectShiply: () => Promise<void>;
   refreshShiply: () => Promise<void>;
+  acceptPulledJobs: (jobs: RawJob[]) => void;
   syncFromShiply: () => Promise<number>;
   market: AnalysedMarket;
   selectedIds: string[];
@@ -207,12 +208,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (jobs.length > 0) setBook("shiply");
   };
 
+  const acceptPulledJobs = (jobs: RawJob[]) => {
+    if (jobs.length === 0) return;
+    setLiveJobs(jobs);
+    setBook("shiply");
+  };
+
   const syncFromShiply = async () => {
     const res = await fetch("/api/shiply/sync", { method: "POST" });
-    const body = (await res.json()) as { error?: string; jobCount?: number };
+    const body = (await res.json()) as {
+      error?: string;
+      jobCount?: number;
+      jobs?: RawJob[];
+    };
     if (!res.ok) throw new Error(body.error ?? "Could not refresh Shiply.");
     await refreshShiply();
-    return body.jobCount ?? 0;
+    if (body.jobs?.length) acceptPulledJobs(body.jobs);
+    return body.jobCount ?? body.jobs?.length ?? 0;
   };
 
   const persist = (key: string, ids: string[]) => {
@@ -265,11 +277,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const market = useMemo(
     () =>
-      analyseMarket(
-        profile,
-        book === "shiply" && liveJobs.length > 0 ? liveJobs : undefined,
-      ),
-    [profile, book, liveJobs],
+      analyseMarket(profile, liveJobs.length > 0 ? liveJobs : undefined),
+    [profile, liveJobs],
   );
 
   const value = useMemo(
@@ -284,6 +293,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       importShiplyJobs,
       disconnectShiply,
       refreshShiply,
+      acceptPulledJobs,
       syncFromShiply,
       market,
       selectedIds,

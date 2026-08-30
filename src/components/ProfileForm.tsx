@@ -84,6 +84,7 @@ export function ProfileForm() {
             ))}
           </select>
         </Field>
+        <div id="where-you-are" className="grid gap-4 md:col-span-2 md:grid-cols-2">
         <Field label="Starting city — where the vehicle is now">
           <CitySelect
             value={profile.startingCity}
@@ -93,6 +94,7 @@ export function ProfileForm() {
         <Field label="Home city">
           <CitySelect value={profile.homeCity} onChange={(v) => update("homeCity", v)} />
         </Field>
+        </div>
         <Field label="Payload (kg)">
           <input
             type="number"
