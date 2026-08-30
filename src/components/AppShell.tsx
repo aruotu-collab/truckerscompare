@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppState } from "@/context/AppState";
+import { useAuth } from "@/context/Auth";
 import { supabaseConfigured } from "@/lib/supabase";
 import { clsx } from "./clsx";
 
@@ -17,6 +18,7 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { market, selectedIds, profile } = useAppState();
+  const { user } = useAuth();
 
   return (
     <div className="min-h-full bg-ink text-text">
@@ -69,6 +71,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               {market.market.analysed} jobs · {profile.startingCity}
             </div>
             <div>Home {profile.homeCity}</div>
+            <div className="pt-1">
+              {user ? (
+                <span className="text-text">{user.email}</span>
+              ) : (
+                <Link href="/sign-in" className="text-gold hover:underline">
+                  Sign in
+                </Link>
+              )}
+            </div>
           </div>
         </aside>
 
@@ -84,8 +95,25 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="mx-2 text-line">/</span>
               <span className="tabular">{market.market.analysed} analysed</span>
             </div>
-            <div className="text-[11px] uppercase tracking-wider text-muted">
-              {market.market.qualityLabel} · {market.market.quality}/100
+            <div className="flex items-center gap-3">
+              {user ? (
+                <form action="/auth/sign-out" method="post">
+                  <button
+                    type="submit"
+                    className="text-xs text-muted hover:text-text"
+                    title={user.email ?? "Signed in"}
+                  >
+                    Sign out
+                  </button>
+                </form>
+              ) : (
+                <Link href="/sign-in" className="text-xs text-gold hover:underline">
+                  Sign in
+                </Link>
+              )}
+              <div className="text-[11px] uppercase tracking-wider text-muted">
+                {market.market.qualityLabel} · {market.market.quality}/100
+              </div>
             </div>
           </header>
           <main className="flex-1 px-4 py-5 md:px-6 md:py-6">{children}</main>

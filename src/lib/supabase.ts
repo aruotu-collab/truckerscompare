@@ -2,13 +2,13 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | null | undefined;
 
-function projectUrl(): string | undefined {
+export function projectUrl(): string | undefined {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!raw) return undefined;
   return raw.replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
 }
 
-function publicKey(): string | undefined {
+export function publicKey(): string | undefined {
   return (
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY

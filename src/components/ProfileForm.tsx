@@ -1,13 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { CITIES } from "@/lib/geo";
 import { VEHICLE_LABELS } from "@/lib/profile";
 import { useAppState } from "@/context/AppState";
+import { useAuth } from "@/context/Auth";
 import type { OperatorProfile, VehicleType } from "@/lib/types";
 
 export function ProfileForm() {
   const { profile, setProfile, market } = useAppState();
+  const { user } = useAuth();
 
   const update = <K extends keyof OperatorProfile>(key: K, value: OperatorProfile[K]) => {
     setProfile({ ...profile, [key]: value });
@@ -26,6 +29,18 @@ export function ProfileForm() {
       </div>
 
       <div className="rounded-lg border border-line bg-panel p-4 text-sm">
+        {user ? (
+          <p className="mb-3">
+            Signed in as <span className="text-gold">{user.email}</span>
+          </p>
+        ) : (
+          <p className="mb-3 text-muted">
+            <Link href="/sign-in?next=/profile" className="text-gold hover:underline">
+              Sign in
+            </Link>{" "}
+            with a magic link so this profile can follow you to Shiply later.
+          </p>
+        )}
         After this profile, Best Overall is{" "}
         <span className="text-gold">
           {market.winners.bestOverall
