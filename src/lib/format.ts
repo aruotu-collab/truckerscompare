@@ -86,6 +86,12 @@ export function signedGbp(n: number): string {
   return abs;
 }
 
+export const PICKUP_RADIUS_OPTIONS = [10, 25, 40, 80, 0] as const;
+
+export function pickupRadiusLabel(miles: number): string {
+  return miles > 0 ? `${miles} miles` : "Any distance";
+}
+
 export function routeLabel(pickup: string, delivery: string): string {
   return `${pickup} → ${delivery}`;
 }

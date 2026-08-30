@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CITIES } from "@/lib/geo";
 import { VEHICLE_LABELS } from "@/lib/profile";
 import { useAppState } from "@/context/AppState";
+import { PickupRadius } from "./WhereYouAre";
 import { displayNameFromEmail } from "@/lib/auth";
 import { useAuth } from "@/context/Auth";
 import type { OperatorProfile, VehicleType } from "@/lib/types";
@@ -164,14 +165,12 @@ export function ProfileForm() {
             className={inputClass}
           />
         </Field>
-        <Field label="Maximum dead miles you will tolerate">
-          <input
-            type="number"
+        <div className="md:col-span-2">
+          <PickupRadius
             value={profile.maxDeadMiles}
-            onChange={(e) => update("maxDeadMiles", Number(e.target.value))}
-            className={inputClass}
+            onChange={(miles) => update("maxDeadMiles", miles)}
           />
-        </Field>
+        </div>
         <Field label="Working hours available today">
           <input
             type="number"

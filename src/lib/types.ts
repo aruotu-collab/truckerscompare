@@ -183,6 +183,8 @@ export interface CombinationPlan {
 
 export interface MarketSummary {
   analysed: number;
+  scanned: number;
+  pickupRadiusMiles: number;
   startingCity: string;
   homeCity: string;
   quality: number;

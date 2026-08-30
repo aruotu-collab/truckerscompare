@@ -13,6 +13,7 @@ import {
   loadHeadline,
   marketPriceLabel,
   milesLabel,
+  pickupRadiusLabel,
   routeLabel,
   workingBid,
   winnerLabel,
@@ -36,10 +37,15 @@ export function Overview() {
           {summary.analysed} opportunities analysed
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          You are in {summary.startingCity}. Home is {summary.homeCity}. The
-          book is {summary.qualityLabel.toLowerCase()}. Miles and times are UK
-          road distances, not crow-flies. Do not read 100 rows — start with the
-          winners, then inspect the evidence.
+          You are in {summary.startingCity}, looking{" "}
+          {pickupRadiusLabel(summary.pickupRadiusMiles).toLowerCase()} for
+          collection. Home is {summary.homeCity}.{" "}
+          {summary.pickupRadiusMiles > 0 && summary.scanned > summary.analysed
+            ? `${summary.analysed} of ${summary.scanned} jobs are inside that ring. `
+            : null}
+          {summary.analysed === 0
+            ? "Nothing in range — widen the radius or change starting city."
+            : `The book is ${summary.qualityLabel.toLowerCase()}. Miles are UK road distances, not crow-flies. Start with the winners.`}
         </p>
       </div>
 

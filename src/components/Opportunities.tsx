@@ -12,11 +12,13 @@ import {
   loadLabel,
   marketPriceLabel,
   milesLabel,
+  pickupRadiusLabel,
   routeLabel,
 } from "@/lib/format";
 import { JOB_SOURCES } from "@/lib/marketplaces";
 import type { AnalysedJob, JobSource } from "@/lib/types";
 import { clsx } from "./clsx";
+import { PickupRadius } from "./WhereYouAre";
 import { BandPill, JobFlags, MarketplaceBids, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
 type SortKey =
@@ -28,13 +30,12 @@ type SortKey =
   | "pickupMiles";
 
 export function Opportunities() {
-  const { market, selectedIds, toggleSelected, dismissedIds, savedIds } = useAppState();
+  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile } =
+    useAppState();
   const [search, setSearch] = useState("");
   const [scoreMin, setScoreMin] = useState(0);
   const [profitMin, setProfitMin] = useState(0);
   const [hourMin, setHourMin] = useState(0);
-  const [maxDead, setMaxDead] = useState(200);
-  const [pickupMax, setPickupMax] = useState(200);
   const [towardsHome, setTowardsHome] = useState(false);
   const [hideDismissed, setHideDismissed] = useState(true);
   const [savedOnly, setSavedOnly] = useState(false);
@@ -48,8 +49,6 @@ export function Opportunities() {
       if (scoreMin > 0 && job.score < scoreMin) return false;
       if (profitMin > 0 && job.profit < profitMin) return false;
       if (hourMin > 0 && job.profitPerHour < hourMin) return false;
-      if (job.deadMiles > maxDead) return false;
-      if (job.pickupMiles > pickupMax) return false;
       if (towardsHome && job.towardsHomeMiles < 10) return false;
       if (source !== "all" && job.source !== source) return false;
       if (search) {
@@ -73,8 +72,6 @@ export function Opportunities() {
     scoreMin,
     profitMin,
     hourMin,
-    maxDead,
-    pickupMax,
     towardsHome,
     hideDismissed,
     savedOnly,
@@ -91,7 +88,11 @@ export function Opportunities() {
           <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Comparison grid</p>
           <h1 className="mt-1 text-2xl font-medium">Opportunities</h1>
           <p className="mt-1 text-sm text-muted">
-            {rows.length} of {market.jobs.length} shown. Select up to four, then compare.
+            {`${rows.length} of ${market.jobs.length} shown${
+              market.market.pickupRadiusMiles > 0
+                ? ` within ${pickupRadiusLabel(market.market.pickupRadiusMiles)} of ${profile.startingCity}`
+                : ""
+            }. Select up to four, then compare.`}
           </p>
         </div>
         <Link
@@ -117,8 +118,12 @@ export function Opportunities() {
         <NumFilter label="Score +" value={scoreMin} onChange={setScoreMin} />
         <NumFilter label="Profit £+" value={profitMin} onChange={setProfitMin} />
         <NumFilter label="£/hr +" value={hourMin} onChange={setHourMin} />
-        <NumFilter label="Max dead" value={maxDead} onChange={setMaxDead} />
-        <NumFilter label="Pickup <" value={pickupMax} onChange={setPickupMax} />
+        <div className="md:col-span-2 lg:col-span-3">
+          <PickupRadius
+            value={profile.maxDeadMiles}
+            onChange={(miles) => setProfile({ ...profile, maxDeadMiles: miles })}
+          />
+        </div>
         <select
           value={source}
           onChange={(e) => setSource(e.target.value as JobSource | "all")}

@@ -37,15 +37,20 @@ export function analyseMarket(
       economics: costJob(job, profile, { quote }),
     };
   });
+  const radius = profile.maxDeadMiles;
+  const scoped =
+    radius > 0
+      ? costed.filter((row) => row.economics.pickupMiles <= radius)
+      : costed;
 
-  const onwardByCity = buildOnward(costed);
+  const onwardByCity = buildOnward(scoped);
 
-  const profits = costed.map((c) => c.economics.profit);
-  const perHours = costed.map((c) => c.economics.profitPerHour);
-  const deads = costed.map((c) => c.economics.deadMiles);
-  const routes = costed.map((c) => c.economics.routeFit);
+  const profits = scoped.map((c) => c.economics.profit);
+  const perHours = scoped.map((c) => c.economics.profitPerHour);
+  const deads = scoped.map((c) => c.economics.deadMiles);
+  const routes = scoped.map((c) => c.economics.routeFit);
 
-  const jobs: AnalysedJob[] = costed.map(({ job, economics, suggestedQuote }) => {
+  const jobs: AnalysedJob[] = scoped.map(({ job, economics, suggestedQuote }) => {
     const onward = onwardByCity.get(job.deliveryCity) ?? emptyOnward();
     const competition = competitionLevel(job.quoteCount, job.postedMinutesAgo);
     const confidence = confidenceOf(job);
@@ -106,7 +111,7 @@ export function analyseMarket(
     jobs,
     winners,
     combinations,
-    market: summarise(jobs, profile),
+    market: summarise(jobs, profile, costed.length),
     actNow,
     consider,
     monitor,
@@ -442,7 +447,11 @@ function applyWinnerLabels(jobs: AnalysedJob[], winners: Winners): void {
   assign(winners.towardsHome?.id, "towards_home");
 }
 
-function summarise(jobs: AnalysedJob[], profile: OperatorProfile): MarketSummary {
+function summarise(
+  jobs: AnalysedJob[],
+  profile: OperatorProfile,
+  scanned: number,
+): MarketSummary {
   const bands: MarketSummary["bands"] = {
     exceptional: jobs.filter((j) => j.band === "exceptional").length,
     strong: jobs.filter((j) => j.band === "strong").length,
@@ -473,6 +482,8 @@ function summarise(jobs: AnalysedJob[], profile: OperatorProfile): MarketSummary
 
   return {
     analysed: jobs.length,
+    scanned,
+    pickupRadiusMiles: profile.maxDeadMiles,
     startingCity: profile.startingCity,
     homeCity: profile.homeCity,
     quality,
@@ -485,8 +496,8 @@ function summarise(jobs: AnalysedJob[], profile: OperatorProfile): MarketSummary
             ? "Average"
             : "Thin market",
     bands,
-    bestProfit: Math.max(...jobs.map((j) => j.profit)),
-    bestPerHour: Math.max(...jobs.map((j) => j.profitPerHour)),
+    bestProfit: jobs.length ? Math.max(...jobs.map((j) => j.profit)) : 0,
+    bestPerHour: jobs.length ? Math.max(...jobs.map((j) => j.profitPerHour)) : 0,
     medianProfit: median(jobs.map((j) => j.profit)),
     medianPerHour: median(jobs.map((j) => j.profitPerHour)),
     strongestDestination,
