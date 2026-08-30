@@ -23,8 +23,12 @@ export function getRawJobs(): RawJob[] {
   return RAW_JOBS;
 }
 
-export function analyseMarket(profile: OperatorProfile): AnalysedMarket {
-  const costed = RAW_JOBS.map((job) => ({ job, economics: costJob(job, profile) }));
+export function analyseMarket(
+  profile: OperatorProfile,
+  rawJobs: RawJob[] = RAW_JOBS,
+): AnalysedMarket {
+  const book = rawJobs.length > 0 ? rawJobs : RAW_JOBS;
+  const costed = book.map((job) => ({ job, economics: costJob(job, profile) }));
 
   const onwardByCity = buildOnward(costed);
 

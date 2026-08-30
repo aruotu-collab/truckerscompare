@@ -12,19 +12,36 @@ import {
 import { useAuth } from "@/context/Auth";
 import { analyseMarket } from "@/lib/engine";
 import { DEFAULT_PROFILE, loadProfile, saveProfile } from "@/lib/profile";
+import {
+  fetchConnection,
+  fetchMarketplaceJobs,
+  replaceMarketplaceJobs,
+  setConnectionStatus,
+  type MarketplaceConnection,
+} from "@/lib/marketplace-store";
 import { fetchRemoteProfile, upsertRemoteProfile } from "@/lib/profile-store";
-import type { AnalysedMarket, OperatorProfile } from "@/lib/types";
+import type { AnalysedMarket, OperatorProfile, RawJob } from "@/lib/types";
 
 export type ProfileSaveState = "local" | "loading" | "saving" | "saved" | "error";
 
 const SELECTED_KEY = "tc-selected-v1";
 const SAVED_KEY = "tc-saved-v1";
 const DISMISSED_KEY = "tc-dismissed-v1";
+const BOOK_KEY = "tc-book-v1";
+
+export type BookSource = "demo" | "shiply";
 
 interface AppStateValue {
   profile: OperatorProfile;
   setProfile: (next: OperatorProfile) => void;
   profileSave: ProfileSaveState;
+  book: BookSource;
+  setBook: (next: BookSource) => void;
+  liveJobs: RawJob[];
+  connection: MarketplaceConnection | null;
+  importShiplyJobs: (jobs: RawJob[]) => Promise<void>;
+  disconnectShiply: () => Promise<void>;
+  refreshShiply: () => Promise<void>;
   market: AnalysedMarket;
   selectedIds: string[];
   toggleSelected: (id: string) => void;
@@ -56,6 +73,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [book, setBookState] = useState<BookSource>("demo");
+  const [liveJobs, setLiveJobs] = useState<RawJob[]>([]);
+  const [connection, setConnection] = useState<MarketplaceConnection | null>(null);
   const profileRef = useRef(profile);
   const saveTimer = useRef<number | null>(null);
   profileRef.current = profile;
@@ -65,6 +85,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setSelectedIds(readList(SELECTED_KEY));
     setSavedIds(readList(SAVED_KEY));
     setDismissedIds(readList(DISMISSED_KEY));
+    const storedBook = window.localStorage.getItem(BOOK_KEY);
+    if (storedBook === "demo" || storedBook === "shiply") setBookState(storedBook);
     setHydrated(true);
   }, []);
 
@@ -99,6 +121,31 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [ready, hydrated, configured, user?.id]);
 
   useEffect(() => {
+    if (!ready || !hydrated || !configured || !user) {
+      setLiveJobs([]);
+      setConnection(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([fetchConnection(user.id), fetchMarketplaceJobs(user.id)])
+      .then(([nextConnection, jobs]) => {
+        if (cancelled) return;
+        setConnection(nextConnection);
+        setLiveJobs(jobs);
+        if (jobs.length > 0 && nextConnection?.status === "connected") {
+          setBookState("shiply");
+          window.localStorage.setItem(BOOK_KEY, "shiply");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setConnection(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, hydrated, configured, user?.id]);
+
+  useEffect(() => {
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
@@ -118,6 +165,43 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         .then(() => setProfileSave("saved"))
         .catch(() => setProfileSave("error"));
     }, 600);
+  };
+
+  const setBook = (next: BookSource) => {
+    setBookState(next);
+    window.localStorage.setItem(BOOK_KEY, next);
+  };
+
+  const importShiplyJobs = async (jobs: RawJob[]) => {
+    if (!user) throw new Error("Sign in to save a Shiply book.");
+    await replaceMarketplaceJobs(user.id, jobs);
+    setLiveJobs(jobs);
+    setConnection({
+      source: "Shiply",
+      status: jobs.length > 0 ? "connected" : "disconnected",
+      lastSyncedAt: new Date().toISOString(),
+      lastError: null,
+      jobCount: jobs.length,
+    });
+    if (jobs.length > 0) setBook("shiply");
+  };
+
+  const disconnectShiply = async () => {
+    if (user) await setConnectionStatus(user.id, "disconnected");
+    setConnection((prev) =>
+      prev ? { ...prev, status: "disconnected" } : prev,
+    );
+    setBook("demo");
+  };
+
+  const refreshShiply = async () => {
+    if (!user) return;
+    const [nextConnection, jobs] = await Promise.all([
+      fetchConnection(user.id),
+      fetchMarketplaceJobs(user.id),
+    ]);
+    setConnection(nextConnection);
+    setLiveJobs(jobs);
   };
 
   const persist = (key: string, ids: string[]) => {
@@ -168,13 +252,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const market = useMemo(() => analyseMarket(profile), [profile]);
+  const market = useMemo(
+    () =>
+      analyseMarket(
+        profile,
+        book === "shiply" && liveJobs.length > 0 ? liveJobs : undefined,
+      ),
+    [profile, book, liveJobs],
+  );
 
   const value = useMemo(
     () => ({
       profile,
       setProfile,
       profileSave,
+      book,
+      setBook,
+      liveJobs,
+      connection,
+      importShiplyJobs,
+      disconnectShiply,
+      refreshShiply,
       market,
       selectedIds,
       toggleSelected,
@@ -185,7 +283,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       dismissedIds,
       dismiss,
     }),
-    [profile, profileSave, market, selectedIds, savedIds, dismissedIds],
+    [
+      profile,
+      profileSave,
+      book,
+      liveJobs,
+      connection,
+      market,
+      selectedIds,
+      savedIds,
+      dismissedIds,
+    ],
   );
 
   if (!hydrated) {

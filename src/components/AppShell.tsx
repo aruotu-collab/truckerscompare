@@ -14,11 +14,12 @@ const NAV = [
   { href: "/opportunities", label: "Opportunities" },
   { href: "/compare", label: "Compare" },
   { href: "/profile", label: "Vehicle & costs" },
+  { href: "/connect", label: "Shiply" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { market, selectedIds, profile } = useAppState();
+  const { market, selectedIds, profile, book, liveJobs } = useAppState();
   const { user } = useAuth();
   const welcomeName = displayNameFromEmail(user?.email);
 
@@ -60,8 +61,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="mt-auto space-y-2 border-t border-line pt-4 text-[11px] text-muted">
             <div className="flex items-center justify-between">
-              <span>Monitoring</span>
-              <span className="text-good">Demo book</span>
+              <span>Book</span>
+              <span className={book === "shiply" ? "text-good" : "text-muted"}>
+                {book === "shiply"
+                  ? `Shiply · ${liveJobs.length}`
+                  : "Demo book"}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span>Supabase</span>
@@ -123,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
           <main className="flex-1 px-4 py-5 md:px-6 md:py-6">{children}</main>
-          <nav className="sticky bottom-0 grid grid-cols-4 border-t border-line bg-panel md:hidden">
+          <nav className="sticky bottom-0 grid grid-cols-5 border-t border-line bg-panel md:hidden">
             {NAV.map((item) => {
               const active =
                 item.href === "/"

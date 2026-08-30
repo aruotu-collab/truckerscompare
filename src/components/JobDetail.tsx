@@ -115,6 +115,16 @@ export function JobDetail() {
             Open compare
           </Link>
         ) : null}
+        {job.listingUrl ? (
+          <a
+            href={job.listingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md bg-gold px-3 py-1.5 text-sm text-ink"
+          >
+            Open on {job.source}
+          </a>
+        ) : null}
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">

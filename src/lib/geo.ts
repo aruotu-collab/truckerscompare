@@ -54,6 +54,17 @@ export function cityByName(name: string): City {
   return found;
 }
 
+export function matchCity(name: string): string | null {
+  const n = name.trim().toLowerCase();
+  if (!n) return null;
+  const exact = CITIES.find((c) => c.name.toLowerCase() === n);
+  if (exact) return exact.name;
+  const contained = CITIES.find(
+    (c) => n.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(n),
+  );
+  return contained?.name ?? null;
+}
+
 export function haversineMiles(a: City, b: City): number {
   const r = 3958.8;
   const dLat = toRad(b.lat - a.lat);

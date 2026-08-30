@@ -74,6 +74,7 @@ export interface RawJob {
   quoteCount: number;
   description: string;
   loadingMinutesKnown: boolean;
+  listingUrl?: string | null;
 }
 
 export interface CostBreakdown {
