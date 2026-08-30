@@ -10,7 +10,7 @@ import { useAuth } from "@/context/Auth";
 import type { OperatorProfile, VehicleType } from "@/lib/types";
 
 export function ProfileForm() {
-  const { profile, setProfile, market } = useAppState();
+  const { profile, setProfile, profileSave, market } = useAppState();
   const { user } = useAuth();
 
   const update = <K extends keyof OperatorProfile>(key: K, value: OperatorProfile[K]) => {
@@ -33,13 +33,25 @@ export function ProfileForm() {
         {user ? (
           <p className="mb-3">
             Welcome, <span className="text-gold">{displayNameFromEmail(user.email)}</span>
+            .{" "}
+            <span className="text-muted">
+              {profileSave === "loading"
+                ? "Loading your saved profile…"
+                : profileSave === "saving"
+                  ? "Saving to your account…"
+                  : profileSave === "saved"
+                    ? "This profile is saved to your account."
+                    : profileSave === "error"
+                      ? "Could not save to your account. Changes are still on this device."
+                      : "Changes stay on this device until they save."}
+            </span>
           </p>
         ) : (
           <p className="mb-3 text-muted">
             <Link href="/sign-in?next=/profile" className="text-gold hover:underline">
               Sign in
             </Link>{" "}
-            with a magic link so this profile can follow you to Shiply later.
+            to keep this profile with your account on every device.
           </p>
         )}
         After this profile, Best Overall is{" "}
