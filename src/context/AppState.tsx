@@ -20,6 +20,7 @@ import {
   type MarketplaceConnection,
 } from "@/lib/marketplace-store";
 import { fetchRemoteProfile, upsertRemoteProfile } from "@/lib/profile-store";
+import { driverFacingError, readApiJson } from "@/lib/user-error";
 import type { AnalysedMarket, OperatorProfile, RawJob } from "@/lib/types";
 
 export type ProfileSaveState = "local" | "loading" | "saving" | "saved" | "error";
@@ -216,12 +217,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const syncFromShiply = async () => {
     const res = await fetch("/api/shiply/sync", { method: "POST" });
-    const body = (await res.json()) as {
+    const body = await readApiJson<{
       error?: string;
       jobCount?: number;
       jobs?: RawJob[];
-    };
-    if (!res.ok) throw new Error(body.error ?? "Could not refresh Shiply.");
+    }>(res);
+    if (!res.ok) {
+      throw new Error(
+        driverFacingError(body.error, "Could not refresh Shiply."),
+      );
+    }
     await refreshShiply();
     if (body.jobs?.length) acceptPulledJobs(body.jobs);
     return body.jobCount ?? body.jobs?.length ?? 0;

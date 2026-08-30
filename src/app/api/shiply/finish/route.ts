@@ -12,6 +12,7 @@ import {
   ShiplyAuthRequired,
   type ShiplyExtract,
 } from "@/lib/shiply-session";
+import { driverFacingError } from "@/lib/user-error";
 
 export const maxDuration = 120;
 
@@ -75,9 +76,7 @@ export async function POST() {
       });
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not finish Shiply." },
-      { status: 500 },
-    );
+    const message = driverFacingError(err, "Could not finish pulling jobs.");
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

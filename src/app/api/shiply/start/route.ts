@@ -10,6 +10,7 @@ import {
   saveConnectionMeta,
 } from "@/lib/marketplace-server";
 import { goToShiplyLogin, openShiplyPage } from "@/lib/shiply-session";
+import { driverFacingError } from "@/lib/user-error";
 
 export const maxDuration = 60;
 
@@ -47,7 +48,7 @@ export async function POST() {
     });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Could not start Shiply." },
+      { error: driverFacingError(err, "Could not start Shiply.") },
       { status: 500 },
     );
   }

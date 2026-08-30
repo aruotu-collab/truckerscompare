@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAppState } from "@/context/AppState";
 import { useAuth } from "@/context/Auth";
+import { driverFacingError, readApiJson } from "@/lib/user-error";
 import { WhereYouAre } from "./WhereYouAre";
 
 export function ConnectShiply() {
@@ -47,24 +48,27 @@ export function ConnectShiply() {
   const needsReconnect = connection?.status === "needs_reconnect";
   const firstConnect = !connected || needsReconnect || Boolean(liveViewUrl);
   const showSignInSteps = firstConnect || showSignInAgain;
+  const shownError = driverFacingError(error || connection?.lastError || "", "");
 
   function startSignIn() {
     setBusy(true);
     setError("");
     void fetch("/api/shiply/start", { method: "POST" })
       .then(async (res) => {
-        const body = (await res.json()) as {
+        const body = await readApiJson<{
           error?: string;
           liveViewUrl?: string;
-        };
-        if (!res.ok) throw new Error(body.error ?? "Could not start Shiply.");
+        }>(res);
+        if (!res.ok) {
+          throw new Error(driverFacingError(body.error, "Could not start Shiply."));
+        }
         if (body.liveViewUrl) {
           setLiveViewUrl(body.liveViewUrl);
           window.open(body.liveViewUrl, "_blank", "noopener,noreferrer");
         }
       })
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Could not start Shiply."),
+        setError(driverFacingError(err, "Could not start Shiply.")),
       )
       .finally(() => setBusy(false));
   }
@@ -76,19 +80,19 @@ export function ConnectShiply() {
       method: "POST",
     })
       .then(async (res) => {
-        const body = (await res.json()) as {
+        const body = await readApiJson<{
           error?: string;
           jobs?: Parameters<typeof acceptPulledJobs>[0];
-        };
-        if (!res.ok) throw new Error(body.error ?? "Could not pull jobs.");
+        }>(res);
+        if (!res.ok) {
+          throw new Error(driverFacingError(body.error, "Could not pull jobs."));
+        }
         await refreshShiply();
         if (body.jobs?.length) acceptPulledJobs(body.jobs);
         setLiveViewUrl("");
         setShowSignInAgain(false);
       })
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Could not pull jobs."),
-      )
+      .catch((err) => setError(driverFacingError(err, "Could not pull jobs.")))
       .finally(() => setBusy(false));
   }
 
@@ -96,9 +100,7 @@ export function ConnectShiply() {
     setBusy(true);
     setError("");
     void syncFromShiply()
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Refresh failed."),
-      )
+      .catch((err) => setError(driverFacingError(err, "Could not refresh Shiply.")))
       .finally(() => setBusy(false));
   }
 
@@ -220,9 +222,7 @@ export function ConnectShiply() {
         </p>
       )}
 
-      {connection?.lastError || error ? (
-        <p className="text-sm text-bad">{error || connection?.lastError}</p>
-      ) : null}
+      {shownError ? <p className="text-sm text-bad">{shownError}</p> : null}
 
       {connected ? (
         <p className="text-xs text-muted">
