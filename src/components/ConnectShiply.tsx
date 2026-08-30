@@ -116,10 +116,11 @@ export function ConnectShiply() {
     <div className="space-y-6">
       <Intro />
 
-      <Step n={1} title="Set the Shiply search place">
+      <Step n={1} title="Set where you are now">
         <p className="text-sm text-muted">
-          Do this first. Refresh types the postcode (or place) and radius into
-          Shiply Local. Starting city is only for costing.
+          Enter a postcode first. That is your start point — it finds more jobs
+          around you, and we cost empty miles from here. A city name finds
+          almost nothing.
         </p>
         <div className="mt-4">
           <WhereYouAre compact />

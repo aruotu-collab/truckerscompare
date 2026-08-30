@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CITIES } from "@/lib/geo";
 import { PICKUP_RADIUS_OPTIONS, pickupRadiusLabel, searchPlaceLabel } from "@/lib/format";
 import { useAppState } from "@/context/AppState";
+import { PostcodeLocationField } from "./PostcodeLocationField";
 import { clsx } from "./clsx";
 
 export function PickupRadius({
@@ -16,7 +17,7 @@ export function PickupRadius({
   return (
     <div>
       <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-muted">
-        Radius from the Shiply search place
+        How far you will go for a collection
       </span>
       <div className="flex flex-wrap gap-2">
         {PICKUP_RADIUS_OPTIONS.map((miles) => {
@@ -57,30 +58,26 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
       </h2>
       {compact ? null : (
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Starting city is where the vehicle sits for costing. Refresh types the
-          search place into Shiply Local — a postcode, not a city name.
+          Your postcode is the start point — for finding jobs around you and for
+          costing the empty miles to the pickup.
         </p>
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="block sm:col-span-2">
-          <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
-            Shiply search — postcode or place
-          </span>
-          <input
+        <div className="sm:col-span-2">
+          <PostcodeLocationField
             value={profile.searchLocation}
-            onChange={(e) => setProfile({ ...profile, searchLocation: e.target.value })}
-            placeholder="SE6"
-            autoComplete="postal-code"
-            className="w-full rounded-md border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-gold/50"
+            onChange={(next) =>
+              setProfile({
+                ...profile,
+                searchLocation: next.searchLocation,
+                startingCity: next.startingCity ?? profile.startingCity,
+              })
+            }
           />
-          <span className="mt-1 block text-xs text-muted">
-            Shiply Local pins one point. Typing London finds almost nothing. A
-            postcode like SE6 plus 10 miles covers south-east London.
-          </span>
-        </label>
+        </div>
         <label className="block">
           <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
-            Starting city — vehicle is here now
+            Nearest city — used for mile estimates
           </span>
           <select
             value={profile.startingCity}

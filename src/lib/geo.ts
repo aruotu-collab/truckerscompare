@@ -227,6 +227,20 @@ export function placeLabel(place: string): string {
   return raw.slice(0, 48) || "Unknown";
 }
 
+export function nearestCity(lat: number, lng: number): City {
+  const here = { name: "", lat, lng, region: "" };
+  let best = CITIES[0]!;
+  let bestMiles = Infinity;
+  for (const city of CITIES) {
+    const miles = haversineMiles(here, city);
+    if (miles < bestMiles) {
+      best = city;
+      bestMiles = miles;
+    }
+  }
+  return best;
+}
+
 export function haversineMiles(a: City, b: City): number {
   const r = 3958.8;
   const dLat = toRad(b.lat - a.lat);

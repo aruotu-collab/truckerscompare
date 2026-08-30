@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CITIES } from "@/lib/geo";
 import { VEHICLE_LABELS } from "@/lib/profile";
 import { useAppState } from "@/context/AppState";
+import { PostcodeLocationField } from "./PostcodeLocationField";
 import { PickupRadius } from "./WhereYouAre";
 import { displayNameFromEmail } from "@/lib/auth";
 import { useAuth } from "@/context/Auth";
@@ -87,21 +88,18 @@ export function ProfileForm() {
         </Field>
         <div id="where-you-are" className="grid gap-4 md:col-span-2 md:grid-cols-2">
         <div className="md:col-span-2">
-        <Field label="Shiply search — postcode or place">
-          <input
+          <PostcodeLocationField
             value={profile.searchLocation}
-            onChange={(e) => update("searchLocation", e.target.value)}
-            placeholder="SE6"
-            autoComplete="postal-code"
-            className={inputClass}
+            onChange={(next) =>
+              setProfile({
+                ...profile,
+                searchLocation: next.searchLocation,
+                startingCity: next.startingCity ?? profile.startingCity,
+              })
+            }
           />
-          <span className="mt-1 block text-xs text-muted">
-            Refresh types this into Shiply Local. A city name like London pins
-            one point and finds almost nothing — use a postcode.
-          </span>
-        </Field>
         </div>
-        <Field label="Starting city — where the vehicle is now">
+        <Field label="Nearest city — used for mile estimates">
           <CitySelect
             value={profile.startingCity}
             onChange={(v) => update("startingCity", v)}
