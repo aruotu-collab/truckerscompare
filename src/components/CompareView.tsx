@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useAppState } from "@/context/AppState";
 import { compareTradeoff, vsHeadline } from "@/lib/explanations";
-import { gbp, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minutesLabel, routeLabel } from "@/lib/format";
+import { gbp, hasMarketBid, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minutesLabel, routeLabel, workingBid } from "@/lib/format";
 import type { AnalysedJob } from "@/lib/types";
 import { clsx } from "./clsx";
 import { BandPill, OpenOnMarketplace, ScoreRing, SourceChip } from "./ui";
@@ -197,9 +197,15 @@ function rows(jobs: AnalysedJob[]) {
       best(jobs.map((j) => j.score)),
     ),
     pack(
-      jobs.every((j) => j.source === "Shiply") ? "Lowest bid" : "Bid / budget",
-      jobs.map((j) => gbp(j.revenue)),
-      best(jobs.map((j) => j.revenue)),
+      jobs.every((j) => j.source === "Shiply")
+        ? jobs.every((j) => hasMarketBid(j))
+          ? "Lowest bid"
+          : "Lowest / our lowest"
+        : "Bid / budget",
+      jobs.map((j) =>
+        hasMarketBid(j) ? gbp(j.revenue) : `Our lowest ${gbp(workingBid(j))}`,
+      ),
+      best(jobs.map((j) => workingBid(j))),
     ),
     ...(jobs.some((j) => highestBidOf(j))
       ? [

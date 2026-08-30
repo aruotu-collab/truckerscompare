@@ -54,15 +54,145 @@ export function cityByName(name: string): City {
   return found;
 }
 
+const PLACE_ALIASES: Record<string, string> = {
+  // London boroughs and common districts
+  barking: "London",
+  barnet: "London",
+  bexley: "London",
+  brent: "London",
+  bromley: "London",
+  camden: "London",
+  croydon: "London",
+  ealing: "London",
+  enfield: "London",
+  greenwich: "London",
+  hackney: "London",
+  hammersmith: "London",
+  haringey: "London",
+  harrow: "London",
+  havering: "London",
+  hillingdon: "London",
+  hounslow: "London",
+  islington: "London",
+  kensington: "London",
+  kingston: "London",
+  lambeth: "London",
+  lewisham: "London",
+  merton: "London",
+  newham: "London",
+  redbridge: "London",
+  richmond: "London",
+  southwark: "London",
+  sutton: "London",
+  "tower hamlets": "London",
+  "waltham forest": "London",
+  wandsworth: "London",
+  westminster: "London",
+  chelsea: "London",
+  fulham: "London",
+  paddington: "London",
+  marylebone: "London",
+  shoreditch: "London",
+  hoxton: "London",
+  dalston: "London",
+  clapham: "London",
+  brixton: "London",
+  peckham: "London",
+  deptford: "London",
+  battersea: "London",
+  putney: "London",
+  wimbledon: "London",
+  stratford: "London",
+  wembley: "London",
+  heathrow: "London",
+  gatwick: "London",
+  watford: "London",
+  romford: "London",
+  ilford: "London",
+  uxbridge: "London",
+  hayes: "London",
+  "greater london": "London",
+  // Other book-city catchments
+  salford: "Manchester",
+  stockport: "Manchester",
+  oldham: "Manchester",
+  bolton: "Manchester",
+  bury: "Manchester",
+  rochdale: "Manchester",
+  altrincham: "Manchester",
+  sale: "Manchester",
+  stretford: "Manchester",
+  trafford: "Manchester",
+  "sutton coldfield": "Birmingham",
+  "west bromwich": "Birmingham",
+  dudley: "Birmingham",
+  smethwick: "Birmingham",
+  bradford: "Leeds",
+  wakefield: "Leeds",
+  huddersfield: "Leeds",
+  halifax: "Leeds",
+  birkenhead: "Liverpool",
+  bootle: "Liverpool",
+  wirral: "Liverpool",
+  "st helens": "Liverpool",
+  gateshead: "Newcastle",
+  sunderland: "Newcastle",
+  durham: "Newcastle",
+  bath: "Bristol",
+  rotherham: "Sheffield",
+  chesterfield: "Sheffield",
+  barnsley: "Sheffield",
+  doncaster: "Sheffield",
+  mansfield: "Nottingham",
+  loughborough: "Leicester",
+  warwick: "Coventry",
+  nuneaton: "Coventry",
+  rugby: "Coventry",
+  paisley: "Glasgow",
+  livingston: "Edinburgh",
+  newport: "Cardiff",
+  portsmouth: "Southampton",
+  winchester: "Southampton",
+  luton: "Milton Keynes",
+  bedford: "Milton Keynes",
+  slough: "Reading",
+  guildford: "Reading",
+  swindon: "Swindon",
+};
+
+function normPlace(name: string): string {
+  return name.toLowerCase().replace(/\./g, "").replace(/\s+/g, " ").trim();
+}
+
 export function matchCity(name: string): string | null {
-  const n = name.trim().toLowerCase();
-  if (!n) return null;
+  const n = normPlace(name);
+  if (!n || /^[a-z]{1,2}\d/.test(n)) return null;
+  if (PLACE_ALIASES[n]) return PLACE_ALIASES[n];
   const exact = CITIES.find((c) => c.name.toLowerCase() === n);
   if (exact) return exact.name;
-  const contained = CITIES.find(
-    (c) => n.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(n),
-  );
-  return contained?.name ?? null;
+  for (const [alias, city] of Object.entries(PLACE_ALIASES)) {
+    if (n === alias || n.startsWith(`${alias} `) || n.endsWith(` ${alias}`)) {
+      return city;
+    }
+  }
+  const contained = CITIES.find((c) => n.includes(c.name.toLowerCase()));
+  if (contained) return contained.name;
+  if (n.length >= 4) {
+    const reverse = CITIES.find((c) => c.name.toLowerCase().includes(n));
+    if (reverse) return reverse.name;
+  }
+  return null;
+}
+
+export function resolvePlace(place: string): string | null {
+  const raw = place.replace(/\s+/g, " ").trim();
+  if (!raw) return null;
+  const parts = [raw, ...raw.split(",").map((part) => part.trim()).filter(Boolean)];
+  for (const part of parts) {
+    const hit = matchCity(part);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 export function haversineMiles(a: City, b: City): number {

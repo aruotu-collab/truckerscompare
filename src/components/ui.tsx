@@ -1,15 +1,23 @@
 import type { ReactNode } from "react";
 import { sourceChipClass, sourceLabel } from "@/lib/marketplaces";
 import type { AnalysedJob, JobSource, ScoreBand, WinnerKind } from "@/lib/types";
-import { bandLabel, gbp, highestBidOf, winnerLabel } from "@/lib/format";
+import { bandLabel, gbp, hasMarketBid, highestBidOf, workingBid, winnerLabel } from "@/lib/format";
 import { clsx } from "./clsx";
 
 export function MarketplaceBids({
   job,
 }: {
-  job: Pick<AnalysedJob, "source" | "revenue" | "highestBid" | "quoteCount">;
+  job: Pick<AnalysedJob, "source" | "revenue" | "highestBid" | "quoteCount" | "suggestedQuote">;
 }) {
   const high = highestBidOf(job);
+  if (job.source === "Shiply" && !hasMarketBid(job)) {
+    return (
+      <div>
+        <div className="tabular">{gbp(workingBid(job))}</div>
+        <div className="text-[11px] text-muted">Our lowest · no quotes yet</div>
+      </div>
+    );
+  }
   return (
     <div>
       <div className="tabular">{gbp(job.revenue)}</div>

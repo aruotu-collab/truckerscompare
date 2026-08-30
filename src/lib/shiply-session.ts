@@ -1,5 +1,5 @@
 import type { Browser, Page } from "playwright-core";
-import { CITIES } from "./geo";
+import { resolvePlace } from "./geo";
 import { listingToJob, type ImportedListing } from "./shiply";
 import {
   listingParseIsComplete,
@@ -68,18 +68,7 @@ export function isShiplyLogin(page: Page): boolean {
 }
 
 function placeToCity(place: string): string | null {
-  const first = place.split(",")[0]?.trim() ?? place.trim();
-  if (!first) return null;
-  const lower = first.toLowerCase();
-  const exact = CITIES.find((c) => c.name.toLowerCase() === lower);
-  if (exact) return exact.name;
-  const prefix = CITIES.find(
-    (c) =>
-      lower.startsWith(`${c.name.toLowerCase()} `) ||
-      lower.startsWith(`${c.name.toLowerCase()}-`),
-  );
-  if (prefix) return prefix.name;
-  return CITIES.find((c) => lower.includes(c.name.toLowerCase()))?.name ?? null;
+  return resolvePlace(place);
 }
 
 function parsePosted(date: string): number {
@@ -205,7 +194,7 @@ export async function extractVisibleJobs(page: Page): Promise<ShiplyExtract> {
   let sampleSnippet = "";
 
   for (const row of rows) {
-    if (withBudget >= DETAIL_LIMIT) break;
+    if (jobs.length >= DETAIL_LIMIT) break;
     const pickupCity = placeToCity(row.pickup);
     const deliveryCity = placeToCity(row.delivery);
     if (!pickupCity || !deliveryCity) continue;
@@ -219,8 +208,7 @@ export async function extractVisibleJobs(page: Page): Promise<ShiplyExtract> {
       if (err instanceof ShiplyAuthRequired) throw err;
     }
     const revenue = detail?.lowestBid ?? 0;
-    if (!revenue) continue;
-    withBudget += 1;
+    if (revenue) withBudget += 1;
 
     const fromUrl = cargoFromListingUrl(row.listingUrl);
     const item: ImportedListing = {
@@ -252,7 +240,7 @@ export async function extractVisibleJobs(page: Page): Promise<ShiplyExtract> {
   } else if (rows.length === 0) {
     note = `Opened ${page.url()} but found no Shiply listing table.`;
   } else if (jobs.length === 0) {
-    note = `Read ${rows.length} listings; ${mapped} mapped to the city book, none had a readable budget.`;
+    note = `Read ${rows.length} listings; ${mapped} mapped to the city book, none could be kept.`;
   }
 
   console.log(

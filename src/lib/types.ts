@@ -161,6 +161,7 @@ export interface AnalysedJob extends RawJob {
   vsTodayProfitPct: number;
   vsTargetHour: number;
   vsMinProfit: number;
+  suggestedQuote: number;
 }
 
 export interface CombinationPlan {

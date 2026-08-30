@@ -1,4 +1,4 @@
-import { costJob, fulfilmentCost, type JobScenario } from "./costs";
+import { costJob, fulfilmentCost, suggestedQuoteFor, type JobScenario } from "./costs";
 import { generateDemoJobs } from "./demo-jobs";
 import { roadMiles, roadMinutes } from "./geo";
 import type {
@@ -28,7 +28,15 @@ export function analyseMarket(
   rawJobs: RawJob[] = RAW_JOBS,
 ): AnalysedMarket {
   const book = rawJobs.length > 0 ? rawJobs : RAW_JOBS;
-  const costed = book.map((job) => ({ job, economics: costJob(job, profile) }));
+  const costed = book.map((job) => {
+    const suggestedQuote = suggestedQuoteFor(job, profile);
+    const quote = job.revenue > 0 ? job.revenue : suggestedQuote;
+    return {
+      job,
+      suggestedQuote,
+      economics: costJob(job, profile, { quote }),
+    };
+  });
 
   const onwardByCity = buildOnward(costed);
 
@@ -37,7 +45,7 @@ export function analyseMarket(
   const deads = costed.map((c) => c.economics.deadMiles);
   const routes = costed.map((c) => c.economics.routeFit);
 
-  const jobs: AnalysedJob[] = costed.map(({ job, economics }) => {
+  const jobs: AnalysedJob[] = costed.map(({ job, economics, suggestedQuote }) => {
     const onward = onwardByCity.get(job.deliveryCity) ?? emptyOnward();
     const competition = competitionLevel(job.quoteCount, job.postedMinutesAgo);
     const confidence = confidenceOf(job);
@@ -71,6 +79,7 @@ export function analyseMarket(
       vsTodayProfitPct: 0,
       vsTargetHour: economics.profitPerHour - profile.targetProfitPerHour,
       vsMinProfit: economics.profit - profile.minProfit,
+      suggestedQuote,
     };
   });
 
@@ -289,6 +298,7 @@ function flagsOf(
   if (job.collectionWindow.includes("06:00")) flags.push({ kind: "risk", label: "Early collection" });
   if (economics.vehicleFit <= 2) flags.push({ kind: "risk", label: "Vehicle compatibility uncertain" });
   if (onward.rating === "poor") flags.push({ kind: "risk", label: "Poor onward work at destination" });
+  if (job.revenue <= 0) flags.push({ kind: "strength", label: "No quotes yet — scored on our lowest" });
   if (job.weightKg == null) flags.push({ kind: "risk", label: "Weight information incomplete" });
   if (economics.profit < profile.minProfit) flags.push({ kind: "risk", label: "Below your minimum profit" });
   if (economics.totalHours > profile.workingHours)
@@ -493,7 +503,7 @@ function confidenceOf(job: RawJob): ConfidenceLevel {
   let known = 3;
   if (job.weightKg != null) known += 1;
   if (job.loadingMinutesKnown) known += 1;
-  if (job.quoteCount >= 0) known += 0;
+  if (job.revenue > 0) known += 1;
   if (known >= 5) return "high";
   if (known >= 4) return "medium";
   return "low";
@@ -548,7 +558,12 @@ export function simulateOpportunity(
   profile: OperatorProfile,
   scenario: JobScenario,
 ) {
-  const quote = scenario.quote && scenario.quote > 0 ? scenario.quote : job.revenue;
+  const quote =
+    scenario.quote && scenario.quote > 0
+      ? scenario.quote
+      : job.revenue > 0
+        ? job.revenue
+        : job.suggestedQuote;
   const economics = costJob(job, profile, { ...scenario, quote });
   const others = book.filter((row) => row.id !== job.id);
   const profits = [...others.map((row) => row.profit), economics.profit];

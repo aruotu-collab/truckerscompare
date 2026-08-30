@@ -312,7 +312,7 @@ function MobileCard({
           <div className="tabular text-gold">{gbp(job.profit)}</div>
         </div>
         <div>
-          <div className="text-[11px] text-muted">{marketPriceLabel(job.source)}</div>
+          <div className="text-[11px] text-muted">{marketPriceLabel(job)}</div>
           <MarketplaceBids job={job} />
         </div>
         <div>

@@ -14,6 +14,7 @@ import {
   marketPriceLabel,
   milesLabel,
   routeLabel,
+  workingBid,
   winnerLabel,
 } from "@/lib/format";
 import type { AnalysedJob, CombinationPlan, WinnerKind } from "@/lib/types";
@@ -152,7 +153,7 @@ function WinnerJobCard({
             <span className="tabular">{milesLabel(job.deadMiles)}</span>
           </div>
           <div>
-            <div className="text-[11px] text-muted">{marketPriceLabel(job.source)}</div>
+            <div className="text-[11px] text-muted">{marketPriceLabel(job)}</div>
             <MarketplaceBids job={job} />
           </div>
         </div>
@@ -247,7 +248,7 @@ function Bucket({
                     <BandPill band={job.band} />
                     <span className="tabular">{gbp(job.profit)} profit</span>
                     <span className="tabular">
-                      {marketPriceLabel(job.source)} {gbp(job.revenue)}
+                      {marketPriceLabel(job)} {gbp(workingBid(job))}
                       {highestBidOf(job) ? ` · Highest ${gbp(highestBidOf(job)!)}` : ""}
                     </span>
                   </div>

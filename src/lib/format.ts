@@ -150,8 +150,18 @@ export function vehicleLabel(type: VehicleType): string {
   }
 }
 
-export function marketPriceLabel(source: JobSource): string {
-  return marketplaceKind(source) === "quotes" ? "Lowest bid" : "Budget";
+export function hasMarketBid(job: { revenue: number }): boolean {
+  return job.revenue > 0;
+}
+
+export function workingBid(job: { revenue: number; suggestedQuote?: number }): number {
+  if (hasMarketBid(job)) return job.revenue;
+  return job.suggestedQuote && job.suggestedQuote > 0 ? job.suggestedQuote : 0;
+}
+
+export function marketPriceLabel(job: { source: JobSource; revenue: number }): string {
+  if (marketplaceKind(job.source) !== "quotes") return "Budget";
+  return hasMarketBid(job) ? "Lowest bid" : "Our lowest";
 }
 
 export function highestBidOf(job: {
@@ -159,7 +169,7 @@ export function highestBidOf(job: {
   revenue: number;
   highestBid?: number | null;
 }): number | null {
-  if (job.source !== "Shiply") return null;
+  if (job.source !== "Shiply" || !hasMarketBid(job)) return null;
   const high = job.highestBid ?? 0;
   return high > job.revenue ? high : null;
 }

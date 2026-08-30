@@ -15,6 +15,7 @@ import {
   betterThan,
   confidenceLabel,
   gbp,
+  hasMarketBid,
   highestBidOf,
   hoursLabel,
   loadHeadline,
@@ -26,6 +27,7 @@ import {
   postedLabel,
   routeLabel,
   vehicleLabel,
+  workingBid,
 } from "@/lib/format";
 import { QuoteDecision } from "./QuoteDecision";
 import { BandPill, JobFlags, Metric, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
@@ -70,9 +72,11 @@ export function JobDetail() {
               ? ` · Collect ${job.collectionWindow}`
               : ` · Posted ${postedLabel(job.postedMinutesAgo)}`}
             {job.source === "Shiply"
-              ? ` · ${job.quoteCount} quotes · lowest ${gbp(job.revenue)}${
-                  highestBidOf(job) ? ` · highest ${gbp(highestBidOf(job)!)}` : ""
-                }`
+              ? hasMarketBid(job)
+                ? ` · ${job.quoteCount} quotes · lowest ${gbp(job.revenue)}${
+                    highestBidOf(job) ? ` · highest ${gbp(highestBidOf(job)!)}` : ""
+                  }`
+                : " · no quotes yet · scored on our lowest"
               : ` · ${job.quoteCount} quotes`}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -135,14 +139,16 @@ export function JobDetail() {
 
       <div className="grid gap-3 md:grid-cols-4">
         <Metric
-          label={marketPriceLabel(job.source)}
+          label={marketPriceLabel(job)}
           hint={
             job.source === "Shiply"
-              ? `${job.quoteCount} live quotes. Profit below uses this bid.`
+              ? hasMarketBid(job)
+                ? `${job.quoteCount} live quotes. Profit below uses this bid.`
+                : "No live quotes. Profit below uses our calculated lowest."
               : "Marketplace customer budget"
           }
         >
-          <Money value={job.revenue} />
+          <Money value={workingBid(job)} />
         </Metric>
         {highestBidOf(job) ? (
           <Metric label="Highest bid" hint="Current top live quote on Shiply">
@@ -262,11 +268,13 @@ export function JobDetail() {
           <h2 className="text-sm font-medium">Real cost of this job</h2>
           <p className="mt-1 text-xs text-muted">
             {job.source === "Shiply"
-              ? "Lowest current Shiply bid is the starting number. These are the hidden costs."
+              ? hasMarketBid(job)
+                ? "Lowest current Shiply bid is the starting number. These are the hidden costs."
+                : "No live quotes yet. Costs below use our calculated lowest."
               : "Marketplace number is revenue. These are the hidden costs."}
           </p>
           <dl className="mt-4 space-y-2 text-sm">
-            <Row label={marketPriceLabel(job.source)} value={gbp(job.revenue)} />
+            <Row label={marketPriceLabel(job)} value={gbp(workingBid(job))} />
             {highestBidOf(job) ? (
               <Row label="Highest bid" value={gbp(highestBidOf(job)!)} />
             ) : null}

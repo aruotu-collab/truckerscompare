@@ -49,8 +49,8 @@ export function listingToJob(item: ImportedListing, index: number): RawJob | str
   if (!pickup) return `Row ${index + 1}: unknown pickup city “${item.pickupCity}”.`;
   if (!delivery) return `Row ${index + 1}: unknown delivery city “${item.deliveryCity}”.`;
   const revenue = Number(item.revenue);
-  if (!Number.isFinite(revenue) || revenue <= 0) {
-    return `Row ${index + 1}: revenue must be a number greater than 0.`;
+  if (!Number.isFinite(revenue) || revenue < 0) {
+    return `Row ${index + 1}: revenue must be a number.`;
   }
   const id = `shiply:${listingId(item, index)}`;
   return {
@@ -62,6 +62,7 @@ export function listingToJob(item: ImportedListing, index: number): RawJob | str
     vehicleRequired: vehicleOf(item.vehicleRequired),
     revenue,
     highestBid: (() => {
+      if (revenue <= 0) return null;
       const high = Number(item.highestBid);
       return Number.isFinite(high) && high >= revenue ? high : revenue;
     })(),

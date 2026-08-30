@@ -221,6 +221,11 @@ export function profitAtQuote(
   };
 }
 
+export function suggestedQuoteFor(job: RawJob, profile: OperatorProfile): number {
+  const economics = costJob(job, profile, { quote: 1 });
+  return recommendedQuote(fulfilmentCost(economics.costs), economics.totalHours, profile);
+}
+
 export function recommendedQuote(
   fulfilment: number,
   hours: number,

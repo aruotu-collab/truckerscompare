@@ -10,7 +10,7 @@ import {
 } from "@/lib/costs";
 import { simulateOpportunity } from "@/lib/engine";
 import { CITIES } from "@/lib/geo";
-import { gbp, pct } from "@/lib/format";
+import { gbp, hasMarketBid, pct } from "@/lib/format";
 import type { AnalysedJob, OperatorProfile } from "@/lib/types";
 import { clsx } from "./clsx";
 
@@ -23,7 +23,9 @@ export function QuoteDecision({
   book: AnalysedJob[];
   profile: OperatorProfile;
 }) {
-  const [quote, setQuote] = useState(Math.round(job.revenue));
+  const [quote, setQuote] = useState(
+    Math.round(hasMarketBid(job) ? job.revenue : job.suggestedQuote),
+  );
   const [fuel, setFuel] = useState(profile.fuelPricePerLitre);
   const [extraTolls, setExtraTolls] = useState(0);
   const [helperCost, setHelperCost] = useState(0);
@@ -51,7 +53,13 @@ export function QuoteDecision({
   );
   const ladder = quoteLadder(sim.fulfilment, profile.marketplaceFeePercent);
   const chips = useMemo(() => {
-    const values = [be, job.revenue, suggested, suggested + 50, suggested + 100]
+    const values = [
+      be,
+      hasMarketBid(job) ? job.revenue : 0,
+      suggested,
+      suggested + 50,
+      suggested + 100,
+    ]
       .map((n) => Math.round(n))
       .filter((n) => n > 0);
     return [...new Set(values)].sort((a, b) => a - b).slice(0, 6);
@@ -158,7 +166,10 @@ export function QuoteDecision({
         <dl className="mt-4 space-y-2 text-sm">
           <Row label="Cost to fulfil" value={gbp(sim.fulfilment)} />
           <Row label="Break-even quote" value={gbp(be)} />
-          <Row label="Lowest current bid" value={gbp(job.revenue)} />
+          <Row
+            label={hasMarketBid(job) ? "Lowest current bid" : "Our lowest (no bids yet)"}
+            value={gbp(hasMarketBid(job) ? job.revenue : job.suggestedQuote)}
+          />
         </dl>
         <table className="mt-4 w-full text-sm">
           <thead>
