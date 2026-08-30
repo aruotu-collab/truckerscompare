@@ -51,6 +51,7 @@ export interface OperatorProfile {
   displayName: string;
   homeCity: string;
   startingCity: string;
+  searchLocation: string;
   vehicleType: VehicleType;
   payloadKg: number;
   mpg: number;
@@ -187,6 +188,7 @@ export interface MarketSummary {
   scanned: number;
   pickupRadiusMiles: number;
   startingCity: string;
+  searchLocation: string;
   homeCity: string;
   quality: number;
   qualityLabel: string;

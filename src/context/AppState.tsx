@@ -106,8 +106,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       .then(async (remote) => {
         if (cancelled) return;
         if (remote) {
-          setProfileState(remote);
-          saveProfile(remote);
+          const merged = {
+            ...remote,
+            searchLocation: remote.searchLocation || profileRef.current.searchLocation,
+          };
+          setProfileState(merged);
+          saveProfile(merged);
           setProfileSave("saved");
           return;
         }
@@ -221,6 +225,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         startingCity: profile.startingCity,
+        searchLocation: profile.searchLocation,
         radiusMiles: profile.maxDeadMiles,
       }),
     });

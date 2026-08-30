@@ -90,9 +90,9 @@ export function Opportunities() {
           <p className="mt-1 text-sm text-muted">
             {`${rows.length} of ${market.jobs.length} shown${
               market.market.pickupRadiusMiles > 0
-                ? ` · ${book === "shiply" ? "Shiply search" : "within"} ${pickupRadiusLabel(market.market.pickupRadiusMiles)} of ${profile.startingCity}`
+                ? ` · ${book === "shiply" ? "Shiply search" : "within"} ${pickupRadiusLabel(market.market.pickupRadiusMiles)} of ${book === "shiply" ? market.market.searchLocation : profile.startingCity}`
                 : ""
-            }.${book === "shiply" ? " Change city or radius, then Refresh from Shiply." : ""} Select up to four, then compare.`}
+            }.${book === "shiply" ? " Change postcode or radius, then Refresh from Shiply." : ""} Select up to four, then compare.`}
           </p>
         </div>
         <Link

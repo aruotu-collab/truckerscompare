@@ -2,8 +2,18 @@ import type { Page } from "playwright-core";
 
 export type ShiplySearchQuery = {
   startingCity: string;
+  searchLocation: string;
   radiusMiles: number;
 };
+
+/** What we type in Shiply Local — a postcode, not a city name. */
+export function shiplySearchPlace(query: {
+  startingCity: string;
+  searchLocation?: string;
+}): string {
+  const typed = query.searchLocation?.trim() ?? "";
+  return typed || query.startingCity;
+}
 
 /** Radii Shiply actually offers on Local search. */
 export const SHIPLY_LOCAL_RADII = [
@@ -28,9 +38,12 @@ export function parseShiplySearch(body: unknown): ShiplySearchQuery {
     typeof row.startingCity === "string" && row.startingCity.trim()
       ? row.startingCity.trim()
       : "London";
+  const searchLocation =
+    typeof row.searchLocation === "string" ? row.searchLocation.trim() : "";
   const radiusMiles = Number(row.radiusMiles);
   return {
     startingCity,
+    searchLocation,
     radiusMiles: Number.isFinite(radiusMiles) ? radiusMiles : 40,
   };
 }

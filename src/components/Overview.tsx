@@ -41,8 +41,9 @@ export function Overview() {
             <>
               This book is the last Shiply Local search: collections within{" "}
               {pickupRadiusLabel(summary.pickupRadiusMiles).toLowerCase()} of{" "}
-              {summary.startingCity}. Home is {summary.homeCity}. Refresh to
-              apply a new city or radius.{" "}
+              {summary.searchLocation}. Starting city {summary.startingCity} is
+              for costing. Home is {summary.homeCity}. Refresh to apply a new
+              postcode or radius.{" "}
               {summary.analysed === 0
                 ? "Shiply returned nothing for those terms."
                 : `The book is ${summary.qualityLabel.toLowerCase()}.`}

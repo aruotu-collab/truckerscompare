@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CITIES } from "@/lib/geo";
-import { PICKUP_RADIUS_OPTIONS, pickupRadiusLabel } from "@/lib/format";
+import { PICKUP_RADIUS_OPTIONS, pickupRadiusLabel, searchPlaceLabel } from "@/lib/format";
 import { useAppState } from "@/context/AppState";
 import { clsx } from "./clsx";
 
@@ -16,7 +16,7 @@ export function PickupRadius({
   return (
     <div>
       <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-muted">
-        Pickup radius from start
+        Radius from the Shiply search place
       </span>
       <div className="flex flex-wrap gap-2">
         {PICKUP_RADIUS_OPTIONS.map((miles) => {
@@ -52,16 +52,32 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
     >
       <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Where you are</p>
       <h2 className="mt-1 text-base font-medium">
-        Starting {profile.startingCity} · {pickupRadiusLabel(profile.maxDeadMiles)} ·
-        Home {profile.homeCity}
+        Search {searchPlaceLabel(profile)} · {pickupRadiusLabel(profile.maxDeadMiles)} ·
+        Start {profile.startingCity} · Home {profile.homeCity}
       </h2>
       {compact ? null : (
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Refresh from Shiply uses this city and radius as a Local search —
-          the same terms you would type on Shiply. Change them, then refresh.
+          Starting city is where the vehicle sits for costing. Refresh types the
+          search place into Shiply Local — a postcode, not a city name.
         </p>
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="block sm:col-span-2">
+          <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
+            Shiply search — postcode or place
+          </span>
+          <input
+            value={profile.searchLocation}
+            onChange={(e) => setProfile({ ...profile, searchLocation: e.target.value })}
+            placeholder="SE6"
+            autoComplete="postal-code"
+            className="w-full rounded-md border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-gold/50"
+          />
+          <span className="mt-1 block text-xs text-muted">
+            Shiply Local pins one point. Typing London finds almost nothing. A
+            postcode like SE6 plus 10 miles covers south-east London.
+          </span>
+        </label>
         <label className="block">
           <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
             Starting city — vehicle is here now

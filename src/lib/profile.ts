@@ -4,6 +4,7 @@ export const DEFAULT_PROFILE: OperatorProfile = {
   displayName: "Owner-driver",
   homeCity: "Birmingham",
   startingCity: "Manchester",
+  searchLocation: "",
   vehicleType: "7.5t",
   payloadKg: 3500,
   mpg: 14,

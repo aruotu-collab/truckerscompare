@@ -9,6 +9,7 @@ import {
 import {
   nearestShiplyRadius,
   runShiplyLocalSearch,
+  shiplySearchPlace,
   type ShiplySearchQuery,
 } from "./shiply-search";
 import { cargoFromListingUrl, isJunkLoadText } from "./format";
@@ -207,7 +208,11 @@ export async function extractVisibleJobs(
   const radius = query ? nearestShiplyRadius(query.radiusMiles) : 0;
   let usedLocalSearch = false;
   if (query && radius > 0) {
-    usedLocalSearch = await runShiplyLocalSearch(page, query.startingCity, radius);
+    usedLocalSearch = await runShiplyLocalSearch(
+      page,
+      shiplySearchPlace(query),
+      radius,
+    );
     await waitForShiplyReady(page);
     if (isShiplyLogin(page)) throw new ShiplyAuthRequired();
   }
@@ -286,7 +291,7 @@ export async function extractVisibleJobs(
   }
 
   console.log(
-    `[shiply] url=${page.url()} local=${usedLocalSearch} radius=${radius} city=${query?.startingCity ?? "-"} rows=${rows.length} kept=${kept} jobs=${jobs.length} auth=${auth.hint}`,
+    `[shiply] url=${page.url()} local=${usedLocalSearch} radius=${radius} place=${query ? shiplySearchPlace(query) : "-"} rows=${rows.length} kept=${kept} jobs=${jobs.length} auth=${auth.hint}`,
   );
 
   return { jobs, listingCount: rows.length, note };

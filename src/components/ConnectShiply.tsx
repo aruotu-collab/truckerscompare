@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAppState } from "@/context/AppState";
 import { useAuth } from "@/context/Auth";
+import { searchPlaceLabel } from "@/lib/format";
 import { driverFacingError, readApiJson } from "@/lib/user-error";
 import { WhereYouAre } from "./WhereYouAre";
 
@@ -82,6 +83,7 @@ export function ConnectShiply() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         startingCity: profile.startingCity,
+        searchLocation: profile.searchLocation,
         radiusMiles: profile.maxDeadMiles,
       }),
     })
@@ -114,9 +116,10 @@ export function ConnectShiply() {
     <div className="space-y-6">
       <Intro />
 
-      <Step n={1} title="Set where the vehicle is">
+      <Step n={1} title="Set the Shiply search place">
         <p className="text-sm text-muted">
-          Do this first. Refresh uses these as the Shiply Local search.
+          Do this first. Refresh types the postcode (or place) and radius into
+          Shiply Local. Starting city is only for costing.
         </p>
         <div className="mt-4">
           <WhereYouAre compact />
@@ -128,7 +131,7 @@ export function ConnectShiply() {
           <p className="text-sm text-muted">
             Refresh runs Shiply Local search for collections within{" "}
             {profile.maxDeadMiles > 0
-              ? `${profile.maxDeadMiles} miles of ${profile.startingCity}`
+              ? `${profile.maxDeadMiles} miles of ${searchPlaceLabel(profile)}`
               : `the whole country`}
             . That list is the book — we do not thin it again.
           </p>

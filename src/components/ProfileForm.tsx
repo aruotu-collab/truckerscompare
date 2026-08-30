@@ -86,6 +86,21 @@ export function ProfileForm() {
           </select>
         </Field>
         <div id="where-you-are" className="grid gap-4 md:col-span-2 md:grid-cols-2">
+        <div className="md:col-span-2">
+        <Field label="Shiply search — postcode or place">
+          <input
+            value={profile.searchLocation}
+            onChange={(e) => update("searchLocation", e.target.value)}
+            placeholder="SE6"
+            autoComplete="postal-code"
+            className={inputClass}
+          />
+          <span className="mt-1 block text-xs text-muted">
+            Refresh types this into Shiply Local. A city name like London pins
+            one point and finds almost nothing — use a postcode.
+          </span>
+        </Field>
+        </div>
         <Field label="Starting city — where the vehicle is now">
           <CitySelect
             value={profile.startingCity}

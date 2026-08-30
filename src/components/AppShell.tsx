@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAppState } from "@/context/AppState";
 import { useAuth } from "@/context/Auth";
 import { displayNameFromEmail } from "@/lib/auth";
-import { pickupRadiusLabel } from "@/lib/format";
+import { pickupRadiusLabel, searchPlaceLabel } from "@/lib/format";
 import { supabaseConfigured } from "@/lib/supabase";
 import { clsx } from "./clsx";
 
@@ -77,10 +77,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <Link href="/connect#where-you-are" className="block hover:text-text">
               <div>
-                {market.market.analysed} jobs · {profile.startingCity} ·{" "}
+                {market.market.analysed} jobs · {searchPlaceLabel(profile)} ·{" "}
                 {pickupRadiusLabel(profile.maxDeadMiles)}
               </div>
-              <div>Home {profile.homeCity}</div>
+              <div>Start {profile.startingCity} · Home {profile.homeCity}</div>
             </Link>
             <div className="pt-1">
               {user ? (
@@ -101,9 +101,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <div className="hidden text-sm text-muted md:block">
               <Link href="/connect#where-you-are" className="hover:text-text">
-                Starting <span className="text-text">{profile.startingCity}</span>
+                Search <span className="text-text">{searchPlaceLabel(profile)}</span>
                 <span className="mx-2 text-line">/</span>
                 <span className="text-text">{pickupRadiusLabel(profile.maxDeadMiles)}</span>
+                <span className="mx-2 text-line">/</span>
+                Start <span className="text-text">{profile.startingCity}</span>
                 <span className="mx-2 text-line">/</span>
                 Home <span className="text-text">{profile.homeCity}</span>
               </Link>

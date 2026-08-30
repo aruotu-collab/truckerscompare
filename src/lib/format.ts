@@ -92,6 +92,15 @@ export function pickupRadiusLabel(miles: number): string {
   return miles > 0 ? `${miles} miles` : "Any distance";
 }
 
+/** What Refresh types into Shiply Local — a postcode if set, otherwise the start city. */
+export function searchPlaceLabel(profile: {
+  searchLocation?: string | null;
+  startingCity: string;
+}): string {
+  const typed = profile.searchLocation?.trim() ?? "";
+  return typed || profile.startingCity;
+}
+
 export function routeLabel(pickup: string, delivery: string): string {
   return `${pickup} → ${delivery}`;
 }

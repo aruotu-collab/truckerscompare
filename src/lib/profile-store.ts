@@ -16,6 +16,7 @@ interface ProfileRow {
   display_name: string;
   home_city: string;
   starting_city: string;
+  search_location?: string | null;
   vehicle_type: string;
   payload_kg: number | string;
   mpg: number | string;
@@ -45,6 +46,7 @@ export function rowToProfile(row: ProfileRow): OperatorProfile {
     displayName: row.display_name || DEFAULT_PROFILE.displayName,
     homeCity: row.home_city || DEFAULT_PROFILE.homeCity,
     startingCity: row.starting_city || DEFAULT_PROFILE.startingCity,
+    searchLocation: row.search_location?.trim() || DEFAULT_PROFILE.searchLocation,
     vehicleType: vehicle(row.vehicle_type),
     payloadKg: num(row.payload_kg, DEFAULT_PROFILE.payloadKg),
     mpg: num(row.mpg, DEFAULT_PROFILE.mpg),
@@ -71,6 +73,7 @@ export function profileToRow(userId: string, profile: OperatorProfile) {
     display_name: profile.displayName,
     home_city: profile.homeCity,
     starting_city: profile.startingCity,
+    search_location: profile.searchLocation.trim(),
     vehicle_type: profile.vehicleType,
     payload_kg: profile.payloadKg,
     mpg: profile.mpg,
@@ -89,13 +92,15 @@ export async function fetchRemoteProfile(
   userId: string,
 ): Promise<OperatorProfile | null> {
   const supabase = createBrowserSupabase();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "id, display_name, home_city, starting_city, vehicle_type, payload_kg, mpg, fuel_price_per_litre, running_cost_per_mile, driver_hourly_cost, marketplace_fee_percent, target_profit_per_hour, min_profit, max_dead_miles, working_hours",
-    )
-    .eq("id", userId)
-    .maybeSingle();
+  const columns =
+    "id, display_name, home_city, starting_city, search_location, vehicle_type, payload_kg, mpg, fuel_price_per_litre, running_cost_per_mile, driver_hourly_cost, marketplace_fee_percent, target_profit_per_hour, min_profit, max_dead_miles, working_hours";
+  const fallback =
+    "id, display_name, home_city, starting_city, vehicle_type, payload_kg, mpg, fuel_price_per_litre, running_cost_per_mile, driver_hourly_cost, marketplace_fee_percent, target_profit_per_hour, min_profit, max_dead_miles, working_hours";
+  const first = await supabase.from("profiles").select(columns).eq("id", userId).maybeSingle();
+  const { data, error } =
+    first.error && /search_location/i.test(first.error.message)
+      ? await supabase.from("profiles").select(fallback).eq("id", userId).maybeSingle()
+      : first;
   if (error) throw error;
   return data ? rowToProfile(data as ProfileRow) : null;
 }
@@ -105,8 +110,15 @@ export async function upsertRemoteProfile(
   profile: OperatorProfile,
 ): Promise<void> {
   const supabase = createBrowserSupabase();
-  const { error } = await supabase
-    .from("profiles")
-    .upsert(profileToRow(userId, profile), { onConflict: "id" });
+  const row = profileToRow(userId, profile);
+  const { error } = await supabase.from("profiles").upsert(row, { onConflict: "id" });
+  if (error && /search_location/i.test(error.message)) {
+    const { search_location: _dropped, ...rest } = row;
+    const { error: retry } = await supabase
+      .from("profiles")
+      .upsert(rest, { onConflict: "id" });
+    if (retry) throw retry;
+    return;
+  }
   if (error) throw error;
 }

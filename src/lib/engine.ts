@@ -486,6 +486,7 @@ function summarise(
     scanned,
     pickupRadiusMiles: profile.maxDeadMiles,
     startingCity: profile.startingCity,
+    searchLocation: profile.searchLocation?.trim() || profile.startingCity,
     homeCity: profile.homeCity,
     quality,
     qualityLabel:
