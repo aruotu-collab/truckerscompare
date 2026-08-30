@@ -7,12 +7,14 @@ import {
   betterThan,
   gbp,
   hoursLabel,
+  jobPath,
+  marketPriceLabel,
   milesLabel,
   routeLabel,
 } from "@/lib/format";
 import type { AnalysedJob, JobSource } from "@/lib/types";
 import { clsx } from "./clsx";
-import { BandPill, JobFlags, ScoreRing, WinnerChip } from "./ui";
+import { BandPill, JobFlags, OpenOnMarketplace, ScoreRing, WinnerChip } from "./ui";
 
 type SortKey =
   | "score"
@@ -183,6 +185,7 @@ export function Opportunities() {
               <th className="px-3 py-2 font-medium">Route</th>
               <th className="px-3 py-2 font-medium">Score</th>
               <th className="px-3 py-2 font-medium">Profit</th>
+              <th className="px-3 py-2 font-medium">Bid</th>
               <th className="px-3 py-2 font-medium">£/hr</th>
               <th className="px-3 py-2 font-medium">Dead</th>
               <th className="px-3 py-2 font-medium">Time</th>
@@ -205,13 +208,18 @@ export function Opportunities() {
                 </td>
                 <td className="px-3 py-2 tabular text-muted">{index + 1}</td>
                 <td className="px-3 py-2">
-                  <Link href={`/opportunities/${job.id}`} className="hover:text-gold">
+                  <Link href={jobPath(job.id)} className="hover:text-gold">
                     {routeLabel(job.pickupCity, job.deliveryCity)}
                   </Link>
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
                     {job.winnerLabels.map((w) => (
                       <WinnerChip key={w} kind={w} />
                     ))}
+                    <OpenOnMarketplace
+                      source={job.source}
+                      href={job.listingUrl}
+                      className="px-2 py-0.5 text-xs"
+                    />
                   </div>
                 </td>
                 <td className="px-3 py-2">
@@ -221,6 +229,12 @@ export function Opportunities() {
                   </div>
                 </td>
                 <td className="px-3 py-2 tabular text-gold">{gbp(job.profit)}</td>
+                <td className="px-3 py-2 tabular">
+                  <div>{gbp(job.revenue)}</div>
+                  {job.source === "Shiply" ? (
+                    <div className="text-[11px] text-muted">{job.quoteCount} quotes</div>
+                  ) : null}
+                </td>
                 <td className="px-3 py-2 tabular">{gbp(job.profitPerHour)}</td>
                 <td className="px-3 py-2 tabular">{milesLabel(job.deadMiles)}</td>
                 <td className="px-3 py-2 tabular">{hoursLabel(job.totalHours)}</td>
@@ -273,7 +287,7 @@ function MobileCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] text-muted">#{rank}</div>
-          <Link href={`/opportunities/${job.id}`} className="text-base font-medium">
+          <Link href={jobPath(job.id)} className="text-base font-medium">
             {routeLabel(job.pickupCity, job.deliveryCity)}
           </Link>
           <div className="mt-1 flex flex-wrap gap-1">
@@ -290,8 +304,8 @@ function MobileCard({
           <div className="tabular text-gold">{gbp(job.profit)}</div>
         </div>
         <div>
-          <div className="text-[11px] text-muted">£/hour</div>
-          <div className="tabular">{gbp(job.profitPerHour)}</div>
+          <div className="text-[11px] text-muted">{marketPriceLabel(job.source)}</div>
+          <div className="tabular">{gbp(job.revenue)}</div>
         </div>
         <div>
           <div className="text-[11px] text-muted">Dead</div>
@@ -316,11 +330,16 @@ function MobileCard({
           {selected ? "Selected" : "Compare"}
         </button>
         <Link
-          href={`/opportunities/${job.id}`}
+          href={jobPath(job.id)}
           className="rounded-md border border-line px-2 py-1 text-xs text-muted"
         >
           Details
         </Link>
+        <OpenOnMarketplace
+          source={job.source}
+          href={job.listingUrl}
+          className="px-2 py-1 text-xs"
+        />
       </div>
     </article>
   );

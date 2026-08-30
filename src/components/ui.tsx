@@ -1,7 +1,32 @@
 import type { ReactNode } from "react";
-import type { AnalysedJob, ScoreBand, WinnerKind } from "@/lib/types";
+import type { AnalysedJob, JobSource, ScoreBand, WinnerKind } from "@/lib/types";
 import { bandLabel, gbp, winnerLabel } from "@/lib/format";
 import { clsx } from "./clsx";
+
+export function OpenOnMarketplace({
+  source,
+  href,
+  className,
+}: {
+  source: JobSource;
+  href?: string | null;
+  className?: string;
+}) {
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={clsx(
+        "rounded-md bg-gold px-3 py-1.5 text-sm text-ink hover:opacity-90",
+        className,
+      )}
+    >
+      View on {source}
+    </a>
+  );
+}
 
 export function ScoreRing({
   score,

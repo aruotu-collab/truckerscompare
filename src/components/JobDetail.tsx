@@ -17,16 +17,18 @@ import {
   confidenceLabel,
   gbp,
   hoursLabel,
+  marketPriceLabel,
   milesLabel,
+  normalizeJobId,
   minutesLabel,
   postedLabel,
   routeLabel,
 } from "@/lib/format";
-import { BandPill, JobFlags, Metric, Money, ScoreRing, WinnerChip } from "./ui";
+import { BandPill, JobFlags, Metric, Money, OpenOnMarketplace, ScoreRing, WinnerChip } from "./ui";
 import { clsx } from "./clsx";
 
 export function JobDetail() {
-  const { id } = useParams<{ id: string }>();
+  const id = normalizeJobId(useParams<{ id: string | string[] }>().id);
   const { market, profile, selectedIds, toggleSelected, toggleSaved, savedIds, dismiss } =
     useAppState();
   const job = jobById(market.jobs, id);
@@ -58,8 +60,10 @@ export function JobDetail() {
             {routeLabel(job.pickupCity, job.deliveryCity)}
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {job.source} · {job.category} · Posted {postedLabel(job.postedMinutesAgo)} ·{" "}
-            {job.quoteCount} quotes
+            {job.source} · {job.category} · Posted {postedLabel(job.postedMinutesAgo)}
+            {job.source === "Shiply"
+              ? ` · ${job.quoteCount} quotes · lowest bid ${gbp(job.revenue)}`
+              : ` · ${job.quoteCount} quotes`}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {job.winnerLabels.map((w) => (
@@ -83,6 +87,7 @@ export function JobDetail() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <OpenOnMarketplace source={job.source} href={job.listingUrl} />
         <button
           type="button"
           onClick={() => toggleSelected(job.id)}
@@ -115,20 +120,17 @@ export function JobDetail() {
             Open compare
           </Link>
         ) : null}
-        {job.listingUrl ? (
-          <a
-            href={job.listingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-md bg-gold px-3 py-1.5 text-sm text-ink"
-          >
-            Open on {job.source}
-          </a>
-        ) : null}
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
-        <Metric label="Revenue" hint="Marketplace customer budget">
+        <Metric
+          label={marketPriceLabel(job.source)}
+          hint={
+            job.source === "Shiply"
+              ? `${job.quoteCount} live quotes. Profit below uses this bid.`
+              : "Marketplace customer budget"
+          }
+        >
           <Money value={job.revenue} />
         </Metric>
         <Metric
@@ -198,10 +200,12 @@ export function JobDetail() {
         <div className="rounded-lg border border-line bg-panel p-4">
           <h2 className="text-sm font-medium">Real cost of this job</h2>
           <p className="mt-1 text-xs text-muted">
-            Marketplace number is revenue. These are the hidden costs.
+            {job.source === "Shiply"
+              ? "Lowest current Shiply bid is the starting number. These are the hidden costs."
+              : "Marketplace number is revenue. These are the hidden costs."}
           </p>
           <dl className="mt-4 space-y-2 text-sm">
-            <Row label="Revenue" value={gbp(job.revenue)} />
+            <Row label={marketPriceLabel(job.source)} value={gbp(job.revenue)} />
             <Row label="Fuel" value={`− ${gbp(job.costs.fuel)}`} muted />
             <Row label="Vehicle running" value={`− ${gbp(job.costs.vehicle)}`} muted />
             <Row label="of which dead-mile cost" value={gbp(job.costs.deadMile)} muted />

@@ -1,4 +1,4 @@
-import type { ConfidenceLevel, ScoreBand, WinnerKind } from "./types";
+import type { ConfidenceLevel, JobSource, ScoreBand, WinnerKind } from "./types";
 
 export function gbp(n: number, digits = 0): string {
   return new Intl.NumberFormat("en-GB", {
@@ -87,4 +87,21 @@ export function signedGbp(n: number): string {
 
 export function routeLabel(pickup: string, delivery: string): string {
   return `${pickup} → ${delivery}`;
+}
+
+export function marketPriceLabel(source: JobSource): string {
+  return source === "Shiply" ? "Lowest bid" : "Budget";
+}
+
+export function jobPath(id: string): string {
+  return `/opportunities/${encodeURIComponent(id)}`;
+}
+
+export function normalizeJobId(id: string | string[] | undefined): string {
+  const raw = Array.isArray(id) ? id[0] ?? "" : id ?? "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
 }

@@ -5,10 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useAppState } from "@/context/AppState";
 import { compareTradeoff, vsHeadline } from "@/lib/explanations";
-import { gbp, hoursLabel, milesLabel, minutesLabel, routeLabel } from "@/lib/format";
+import { gbp, hoursLabel, jobPath, milesLabel, minutesLabel, routeLabel } from "@/lib/format";
 import type { AnalysedJob } from "@/lib/types";
 import { clsx } from "./clsx";
-import { BandPill, ScoreRing } from "./ui";
+import { BandPill, OpenOnMarketplace, ScoreRing } from "./ui";
 
 export function CompareView() {
   const params = useSearchParams();
@@ -72,11 +72,18 @@ export function CompareView() {
               <th className="px-3 py-2 text-left font-medium text-muted"> </th>
               {jobs.map((job) => (
                 <th key={job.id} className="px-3 py-2 text-left">
-                  <Link href={`/opportunities/${job.id}`} className="hover:text-gold">
+                  <Link href={jobPath(job.id)} className="hover:text-gold">
                     {routeLabel(job.pickupCity, job.deliveryCity)}
                   </Link>
                   <div className="mt-2">
                     <ScoreRing score={job.score} band={job.band} size="sm" />
+                  </div>
+                  <div className="mt-2">
+                    <OpenOnMarketplace
+                      source={job.source}
+                      href={job.listingUrl}
+                      className="px-2 py-1 text-xs"
+                    />
                   </div>
                 </th>
               ))}
@@ -172,7 +179,7 @@ function rows(jobs: AnalysedJob[]) {
       best(jobs.map((j) => j.score)),
     ),
     pack(
-      "Revenue",
+      jobs.every((j) => j.source === "Shiply") ? "Lowest bid" : "Bid / budget",
       jobs.map((j) => gbp(j.revenue)),
       best(jobs.map((j) => j.revenue)),
     ),

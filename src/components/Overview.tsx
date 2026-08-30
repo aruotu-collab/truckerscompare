@@ -8,12 +8,14 @@ import {
   betterThan,
   gbp,
   hoursLabel,
+  jobPath,
+  marketPriceLabel,
   milesLabel,
   routeLabel,
   winnerLabel,
 } from "@/lib/format";
 import type { AnalysedJob, CombinationPlan, WinnerKind } from "@/lib/types";
-import { BandPill, Money, ScoreRing, WinnerChip } from "./ui";
+import { BandPill, Money, OpenOnMarketplace, ScoreRing, WinnerChip } from "./ui";
 
 export function Overview() {
   const { market } = useAppState();
@@ -118,42 +120,57 @@ function WinnerJobCard({
     );
   }
   return (
-    <Link
-      href={`/opportunities/${job.id}`}
-      className="block rounded-lg border border-line bg-panel p-4 transition-colors hover:border-gold/40"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <WinnerChip kind={kind} />
-          <div className="mt-2 text-base font-medium">
-            {routeLabel(job.pickupCity, job.deliveryCity)}
+    <div className="rounded-lg border border-line bg-panel p-4 transition-colors hover:border-gold/40">
+      <Link href={jobPath(job.id)} className="block">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <WinnerChip kind={kind} />
+            <div className="mt-2 text-base font-medium">
+              {routeLabel(job.pickupCity, job.deliveryCity)}
+            </div>
+            <div className="mt-1 text-xs text-muted">
+              {job.source} · {job.category}
+            </div>
           </div>
-          <div className="mt-1 text-xs text-muted">
-            {job.source} · {job.category}
+          <ScoreRing score={job.score} band={job.band} />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <div>
+            <div className="text-[11px] text-muted">Profit</div>
+            <Money value={job.profit} className="text-gold" />
+          </div>
+          <div>
+            <div className="text-[11px] text-muted">£/hour</div>
+            <span className="tabular">{gbp(job.profitPerHour)}</span>
+          </div>
+          <div>
+            <div className="text-[11px] text-muted">Dead</div>
+            <span className="tabular">{milesLabel(job.deadMiles)}</span>
+          </div>
+          <div>
+            <div className="text-[11px] text-muted">{marketPriceLabel(job.source)}</div>
+            <span className="tabular">{gbp(job.revenue)}</span>
+            {job.source === "Shiply" ? (
+              <div className="text-[11px] text-muted">{job.quoteCount} quotes</div>
+            ) : null}
           </div>
         </div>
-        <ScoreRing score={job.score} band={job.band} />
-      </div>
-      <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-        <div>
-          <div className="text-[11px] text-muted">Profit</div>
-          <Money value={job.profit} className="text-gold" />
+        <div className="mt-3 text-[11px] text-muted">
+          {kind === "towards_home"
+            ? `Closes ${milesLabel(job.towardsHomeMiles)} of the journey home`
+            : betterThan(job.percentiles.personalScore)}
         </div>
-        <div>
-          <div className="text-[11px] text-muted">£/hour</div>
-          <span className="tabular">{gbp(job.profitPerHour)}</span>
-        </div>
-        <div>
-          <div className="text-[11px] text-muted">Dead</div>
-          <span className="tabular">{milesLabel(job.deadMiles)}</span>
-        </div>
+      </Link>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <OpenOnMarketplace source={job.source} href={job.listingUrl} />
+        <Link
+          href={jobPath(job.id)}
+          className="rounded-md border border-line px-3 py-1.5 text-sm"
+        >
+          Our analysis
+        </Link>
       </div>
-      <div className="mt-3 text-[11px] text-muted">
-        {kind === "towards_home"
-          ? `Closes ${milesLabel(job.towardsHomeMiles)} of the journey home`
-          : betterThan(job.percentiles.personalScore)}
-      </div>
-    </Link>
+    </div>
   );
 }
 
@@ -215,18 +232,28 @@ function Bucket({
         <ul className="mt-3 space-y-3">
           {jobs.map((job) => (
             <li key={job.id}>
-              <Link href={`/opportunities/${job.id}`} className="block hover:text-gold">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm">
-                    {routeLabel(job.pickupCity, job.deliveryCity)}
-                  </span>
-                  <span className="tabular text-sm text-muted">{job.score}</span>
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-[11px] text-muted">
-                  <BandPill band={job.band} />
-                  <span className="tabular">{gbp(job.profit)}</span>
-                </div>
-              </Link>
+              <div>
+                <Link href={jobPath(job.id)} className="block hover:text-gold">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm">
+                      {routeLabel(job.pickupCity, job.deliveryCity)}
+                    </span>
+                    <span className="tabular text-sm text-muted">{job.score}</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+                    <BandPill band={job.band} />
+                    <span className="tabular">{gbp(job.profit)} profit</span>
+                    <span className="tabular">
+                      {marketPriceLabel(job.source)} {gbp(job.revenue)}
+                    </span>
+                  </div>
+                </Link>
+                <OpenOnMarketplace
+                  source={job.source}
+                  href={job.listingUrl}
+                  className="mt-2 inline-block px-2 py-1 text-xs"
+                />
+              </div>
             </li>
           ))}
         </ul>

@@ -543,5 +543,12 @@ function round2(n: number): number {
 }
 
 export function jobById(jobs: AnalysedJob[], id: string): AnalysedJob | undefined {
-  return jobs.find((j) => j.id === id);
+  if (!id) return undefined;
+  let decoded = id;
+  try {
+    decoded = decodeURIComponent(id);
+  } catch {
+    decoded = id;
+  }
+  return jobs.find((j) => j.id === id || j.id === decoded);
 }
