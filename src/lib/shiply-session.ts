@@ -17,7 +17,8 @@ import type { RawJob } from "./types";
 
 export const SHIPLY_LOGIN = "https://www.shiply.com/users/login";
 const SEARCH_URL = "https://www.shiply.com/search";
-const DETAIL_LIMIT = 20;
+const DETAIL_LIMIT = 50;
+const DETAIL_GOTO_LIMIT = 30;
 const ROW_LIMIT = 50;
 
 export class ShiplyAuthRequired extends Error {
@@ -186,7 +187,8 @@ async function readListingDetail(
   page: Page,
   listingUrl: string,
   fallbackTitle: string,
-): Promise<ShiplyListingParse> {
+  allowGoto: boolean,
+): Promise<{ parsed: ShiplyListingParse; usedGoto: boolean }> {
   const fetched = await page
     .evaluate(async (href: string) => {
       const res = await fetch(href, { credentials: "include" });
@@ -201,7 +203,16 @@ async function readListingDetail(
       throw new ShiplyAuthRequired();
     }
     const parsed = parseShiplyListing(fetched.html, fallbackTitle);
-    if (listingParseIsComplete(parsed)) return parsed;
+    if (listingParseIsComplete(parsed) || !allowGoto) {
+      return { parsed, usedGoto: false };
+    }
+  }
+
+  if (!allowGoto) {
+    return {
+      parsed: parseShiplyListing(fetched?.html ?? "", fallbackTitle),
+      usedGoto: false,
+    };
   }
 
   await page.goto(listingUrl, { waitUntil: "domcontentloaded", timeout: 25000 });
@@ -210,14 +221,14 @@ async function readListingDetail(
   await page
     .waitForFunction(
       () =>
-        /lowest\s+(?:quote|bid)|£\s?\d{2,}\s+[A-Za-z]/i.test(
+        /net quote amount|view quote|lowest\s+(?:quote|bid)|£\s?\d{2,}\s+[A-Za-z]/i.test(
           document.body?.innerText || "",
         ),
-      { timeout: 4000 },
+      { timeout: 8000 },
     )
     .catch(() => undefined);
   const html = await page.content();
-  return parseShiplyListing(html, fallbackTitle);
+  return { parsed: parseShiplyListing(html, fallbackTitle), usedGoto: true };
 }
 
 export async function extractVisibleJobs(
@@ -248,13 +259,22 @@ export async function extractVisibleJobs(
   let kept = 0;
   let withBudget = 0;
   let sampleSnippet = "";
+  let gotos = 0;
 
   for (const row of rows) {
     if (jobs.length >= ROW_LIMIT) break;
     let detail: ShiplyListingParse | null = null;
     if (jobs.length < DETAIL_LIMIT) {
       try {
-        detail = await readListingDetail(page, row.listingUrl, row.title);
+        const allowGoto = gotos < DETAIL_GOTO_LIMIT;
+        const read = await readListingDetail(
+          page,
+          row.listingUrl,
+          row.title,
+          allowGoto,
+        );
+        detail = read.parsed;
+        if (read.usedGoto) gotos += 1;
         if (!sampleSnippet && detail.snippet) sampleSnippet = detail.snippet;
       } catch (err) {
         if (err instanceof ShiplyAuthRequired) throw err;

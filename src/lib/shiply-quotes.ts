@@ -66,9 +66,24 @@ export function namedQuotes(text: string): number[] {
 
 function quotesSection(text: string): string | null {
   const match = text.match(
-    /(?:current quotes|lowest\s+(?:quote|bid|offer))([\s\S]{0,3000}?)(?:place quote|questions from transport|notify me if other)/i,
+    /(?:current quotes|net quote amount|lowest\s+(?:quote|bid|offer))([\s\S]{0,4000}?)(?:place quote|questions from transport|notify me if other)/i,
   );
   return match ? match[0] : null;
+}
+
+/** £ amounts in the live quotes table, before the Place Quote form. */
+export function tableQuotes(text: string): number[] {
+  const chunk =
+    quotesSection(text) ??
+    text.match(/net quote amount([\s\S]{0,4000}?)place quote/i)?.[0] ??
+    "";
+  const live = (chunk || text).split(/place quote|declined, withdrawn/i)[0] ?? "";
+  const found: number[] = [];
+  for (const match of live.matchAll(/£\s?([\d,]+(?:\.\d{1,2})?)/g)) {
+    const amount = money(match[1]!);
+    if (validBid(amount)) found.push(amount);
+  }
+  return found;
 }
 
 function labelledLowest(text: string): number {
@@ -192,7 +207,8 @@ export function cargoDescription(title: string, notes: string): string {
 export function listingParseIsComplete(parsed: ShiplyListingParse): boolean {
   return (
     parsed.lowestBid > 0 &&
-    (parsed.quoteCount >= 1 || /lowest\s+(?:quote|bid)/i.test(parsed.snippet))
+    (parsed.quoteCount >= 1 ||
+      /lowest\s+(?:quote|bid)|net quote amount/i.test(parsed.snippet))
   );
 }
 
@@ -238,10 +254,12 @@ export function parseShiplyListing(
   const section = quotesSection(text) ?? text;
   const liveSection = section.split(/declined, withdrawn/i)[0] ?? section;
   const named = namedQuotes(liveSection);
+  const table = tableQuotes(text);
+  const amounts = [...named, ...table];
   const lowestLabel = labelledLowest(text);
-  const lowestBid = lowestLabel || (named.length ? Math.min(...named) : 0);
-  const highestBid = named.length ? Math.max(...named) : lowestBid;
-  let quoteCount = named.length;
+  const lowestBid = lowestLabel || (amounts.length ? Math.min(...amounts) : 0);
+  const highestBid = amounts.length ? Math.max(...amounts) : lowestBid;
+  let quoteCount = Math.max(named.length, table.length);
   if (quoteCount === 0 && lowestBid) {
     const counted = liveSection.match(/(\d+)\s+(?:live\s+)?quotes\b/i);
     quoteCount = counted ? Number(counted[1]) : 1;
