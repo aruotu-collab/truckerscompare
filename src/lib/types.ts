@@ -81,6 +81,7 @@ export interface RawJob {
   description: string;
   loadingMinutesKnown: boolean;
   listingUrl?: string | null;
+  listedMiles?: number | null;
 }
 
 export interface CostBreakdown {

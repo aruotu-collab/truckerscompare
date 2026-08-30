@@ -22,7 +22,7 @@ import type { AnalysedJob, CombinationPlan, WinnerKind } from "@/lib/types";
 import { BandPill, MarketplaceBids, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
 export function Overview() {
-  const { market } = useAppState();
+  const { market, book } = useAppState();
   const { winners, market: summary, actNow, consider, combinations } = market;
   const comboA = winners.bestCombination
     ? jobById(market.jobs, winners.bestCombination.jobAId)
@@ -37,15 +37,29 @@ export function Overview() {
           {summary.analysed} opportunities analysed
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          You are in {summary.startingCity}, looking{" "}
-          {pickupRadiusLabel(summary.pickupRadiusMiles).toLowerCase()} for
-          collection. Home is {summary.homeCity}.{" "}
-          {summary.pickupRadiusMiles > 0 && summary.scanned > summary.analysed
-            ? `${summary.analysed} of ${summary.scanned} jobs are inside that ring. `
-            : null}
-          {summary.analysed === 0
-            ? "Nothing in range — widen the radius or change starting city."
-            : `The book is ${summary.qualityLabel.toLowerCase()}. Miles are UK road distances, not crow-flies. Start with the winners.`}
+          {book === "shiply" ? (
+            <>
+              This book is the last Shiply Local search: collections within{" "}
+              {pickupRadiusLabel(summary.pickupRadiusMiles).toLowerCase()} of{" "}
+              {summary.startingCity}. Home is {summary.homeCity}. Refresh to
+              apply a new city or radius.{" "}
+              {summary.analysed === 0
+                ? "Shiply returned nothing for those terms."
+                : `The book is ${summary.qualityLabel.toLowerCase()}.`}
+            </>
+          ) : (
+            <>
+              You are in {summary.startingCity}, looking{" "}
+              {pickupRadiusLabel(summary.pickupRadiusMiles).toLowerCase()} for
+              collection. Home is {summary.homeCity}.{" "}
+              {summary.pickupRadiusMiles > 0 && summary.scanned > summary.analysed
+                ? `${summary.analysed} of ${summary.scanned} jobs are inside that ring. `
+                : null}
+              {summary.analysed === 0
+                ? "Nothing in range — widen the radius or change starting city."
+                : `The book is ${summary.qualityLabel.toLowerCase()}. Miles are UK road distances, not crow-flies. Start with the winners.`}
+            </>
+          )}
         </p>
       </div>
 

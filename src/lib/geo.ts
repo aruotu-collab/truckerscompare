@@ -46,12 +46,28 @@ export const CITIES: City[] = [
   { name: "Swindon", lat: 51.5558, lng: -1.7797, region: "South West" },
   { name: "Ipswich", lat: 52.0567, lng: 1.1482, region: "East" },
   { name: "Aberdeen", lat: 57.1497, lng: -2.0943, region: "Scotland" },
+  { name: "Belfast", lat: 54.5973, lng: -5.9301, region: "Northern Ireland" },
+  { name: "Derry", lat: 54.9966, lng: -7.3086, region: "Northern Ireland" },
+  { name: "Coleraine", lat: 55.1318, lng: -6.6685, region: "Northern Ireland" },
 ];
 
+export function lookupCity(name: string): City | null {
+  const exact = CITIES.find((c) => c.name === name);
+  if (exact) return exact;
+  const resolved = resolvePlace(name);
+  if (resolved && resolved !== name) {
+    return CITIES.find((c) => c.name === resolved) ?? null;
+  }
+  return null;
+}
+
 export function cityByName(name: string): City {
-  const found = CITIES.find((c) => c.name === name);
-  if (!found) throw new Error(`Unknown city: ${name}`);
-  return found;
+  return lookupCity(name) ?? {
+    name,
+    lat: 52.3555,
+    lng: -1.1743,
+    region: "Unmapped",
+  };
 }
 
 const PLACE_ALIASES: Record<string, string> = {
@@ -158,10 +174,21 @@ const PLACE_ALIASES: Record<string, string> = {
   slough: "Reading",
   guildford: "Reading",
   swindon: "Swindon",
+  // Northern Ireland — never treat Londonderry as London
+  londonderry: "Derry",
+  "county londonderry": "Derry",
+  derry: "Derry",
+  coleraine: "Coleraine",
+  belfast: "Belfast",
 };
 
 function normPlace(name: string): string {
   return name.toLowerCase().replace(/\./g, "").replace(/\s+/g, " ").trim();
+}
+
+function isWholePlace(haystack: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:^|[^a-z])${escaped}(?:$|[^a-z])`).test(haystack);
 }
 
 export function matchCity(name: string): string | null {
@@ -171,28 +198,33 @@ export function matchCity(name: string): string | null {
   const exact = CITIES.find((c) => c.name.toLowerCase() === n);
   if (exact) return exact.name;
   for (const [alias, city] of Object.entries(PLACE_ALIASES)) {
-    if (n === alias || n.startsWith(`${alias} `) || n.endsWith(` ${alias}`)) {
-      return city;
-    }
+    if (isWholePlace(n, alias)) return city;
   }
-  const contained = CITIES.find((c) => n.includes(c.name.toLowerCase()));
-  if (contained) return contained.name;
-  if (n.length >= 4) {
-    const reverse = CITIES.find((c) => c.name.toLowerCase().includes(n));
-    if (reverse) return reverse.name;
-  }
-  return null;
+  const contained = [...CITIES]
+    .sort((a, b) => b.name.length - a.name.length)
+    .find((c) => isWholePlace(n, c.name));
+  return contained?.name ?? null;
 }
 
 export function resolvePlace(place: string): string | null {
   const raw = place.replace(/\s+/g, " ").trim();
   if (!raw) return null;
-  const parts = [raw, ...raw.split(",").map((part) => part.trim()).filter(Boolean)];
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
   for (const part of parts) {
     const hit = matchCity(part);
     if (hit) return hit;
   }
-  return null;
+  return matchCity(raw);
+}
+
+/** Keep Shiply's town name when it is not in the city book. */
+export function placeLabel(place: string): string {
+  const resolved = resolvePlace(place);
+  if (resolved) return resolved;
+  const first = place.split(",")[0]?.replace(/\s+/g, " ").trim() ?? "";
+  if (first && !/^[a-z]{1,2}\d/i.test(first)) return first.slice(0, 48);
+  const raw = place.replace(/\s+/g, " ").trim();
+  return raw.slice(0, 48) || "Unknown";
 }
 
 export function haversineMiles(a: City, b: City): number {

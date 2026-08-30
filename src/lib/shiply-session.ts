@@ -1,17 +1,23 @@
 import type { Browser, Page } from "playwright-core";
-import { resolvePlace } from "./geo";
+import { placeLabel } from "./geo";
 import { listingToJob, type ImportedListing } from "./shiply";
 import {
   listingParseIsComplete,
   parseShiplyListing,
   type ShiplyListingParse,
 } from "./shiply-quotes";
+import {
+  nearestShiplyRadius,
+  runShiplyLocalSearch,
+  type ShiplySearchQuery,
+} from "./shiply-search";
 import { cargoFromListingUrl } from "./format";
 import type { RawJob } from "./types";
 
 export const SHIPLY_LOGIN = "https://www.shiply.com/users/login";
 const SEARCH_URL = "https://www.shiply.com/search";
 const DETAIL_LIMIT = 20;
+const ROW_LIMIT = 50;
 
 export class ShiplyAuthRequired extends Error {
   constructor() {
@@ -33,6 +39,7 @@ type SearchRow = {
   delivery: string;
   date: string;
   quotes: number;
+  listedMiles: number | null;
 };
 
 export async function openShiplyPage(connectUrl: string): Promise<{
@@ -67,8 +74,8 @@ export function isShiplyLogin(page: Page): boolean {
   return url.includes("/users/login") || url.includes("/account-security");
 }
 
-function placeToCity(place: string): string | null {
-  return resolvePlace(place);
+function placeToCity(place: string): string {
+  return placeLabel(place);
 }
 
 function parsePosted(date: string): number {
@@ -98,10 +105,8 @@ async function pageAuthState(page: Page): Promise<{
 }
 
 async function readSearchRows(page: Page): Promise<SearchRow[]> {
-  await page.goto(SEARCH_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
-  await waitForShiplyReady(page);
   if (isShiplyLogin(page)) throw new ShiplyAuthRequired();
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await new Promise((resolve) => setTimeout(resolve, 800));
 
   return page.evaluate(() => {
     const rows: SearchRow[] = [];
@@ -122,6 +127,11 @@ async function readSearchRows(page: Page): Promise<SearchRow[]> {
         pickup: cells[1] || "",
         delivery: cells[2] || "",
         date: cells[4] || "",
+        listedMiles: (() => {
+          const raw = (cells[3] || "").replace(/,/g, "");
+          const miles = Number(raw);
+          return Number.isFinite(miles) && miles > 0 && miles < 4000 ? miles : null;
+        })(),
         quotes: (() => {
           const fifth = Number((cells[5] || "").replace(/\D/g, ""));
           if (fifth > 0 && fifth < 80) return fifth;
@@ -147,6 +157,7 @@ async function readSearchRows(page: Page): Promise<SearchRow[]> {
         pickup: text,
         delivery: text,
         date: "",
+        listedMiles: null,
         quotes: 0,
       });
     }
@@ -183,29 +194,48 @@ async function readListingDetail(
   return parseShiplyListing(html, fallbackTitle);
 }
 
-export async function extractVisibleJobs(page: Page): Promise<ShiplyExtract> {
+export async function extractVisibleJobs(
+  page: Page,
+  query?: ShiplySearchQuery,
+): Promise<ShiplyExtract> {
   if (isShiplyLogin(page)) throw new ShiplyAuthRequired();
+
+  await page.goto(SEARCH_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
+  await waitForShiplyReady(page);
+  if (isShiplyLogin(page)) throw new ShiplyAuthRequired();
+
+  const radius = query ? nearestShiplyRadius(query.radiusMiles) : 0;
+  let usedLocalSearch = false;
+  if (query && radius > 0) {
+    usedLocalSearch = await runShiplyLocalSearch(page, query.startingCity, radius);
+    await waitForShiplyReady(page);
+    if (isShiplyLogin(page)) throw new ShiplyAuthRequired();
+  }
 
   const rows = await readSearchRows(page);
   const auth = await pageAuthState(page);
   const jobs: RawJob[] = [];
-  let mapped = 0;
+  let kept = 0;
   let withBudget = 0;
   let sampleSnippet = "";
 
   for (const row of rows) {
-    if (jobs.length >= DETAIL_LIMIT) break;
+    if (jobs.length >= ROW_LIMIT) break;
     const pickupCity = placeToCity(row.pickup);
     const deliveryCity = placeToCity(row.delivery);
-    if (!pickupCity || !deliveryCity) continue;
-    mapped += 1;
+    if (!pickupCity || pickupCity === "Unknown" || !deliveryCity || deliveryCity === "Unknown") {
+      continue;
+    }
+    kept += 1;
 
     let detail: ShiplyListingParse | null = null;
-    try {
-      detail = await readListingDetail(page, row.listingUrl, row.title);
-      if (!sampleSnippet && detail.snippet) sampleSnippet = detail.snippet;
-    } catch (err) {
-      if (err instanceof ShiplyAuthRequired) throw err;
+    if (jobs.length < DETAIL_LIMIT) {
+      try {
+        detail = await readListingDetail(page, row.listingUrl, row.title);
+        if (!sampleSnippet && detail.snippet) sampleSnippet = detail.snippet;
+      } catch (err) {
+        if (err instanceof ShiplyAuthRequired) throw err;
+      }
     }
     const revenue = detail?.lowestBid ?? 0;
     if (revenue) withBudget += 1;
@@ -225,6 +255,7 @@ export async function extractVisibleJobs(page: Page): Promise<ShiplyExtract> {
       quoteCount: detail?.quoteCount || row.quotes,
       postedMinutesAgo: parsePosted(row.date),
       description: detail?.description || detail?.title || row.title || fromUrl,
+      listedMiles: row.listedMiles,
     };
     const job = listingToJob(item, jobs.length);
     if (typeof job !== "string") jobs.push(job);
@@ -237,14 +268,17 @@ export async function extractVisibleJobs(page: Page): Promise<ShiplyExtract> {
   } else if (/been blocked|unable to access/i.test(sampleSnippet)) {
     note =
       "Shiply blocked the hosted browser on listing pages. Open sign-in again and stay in that window, then pull jobs.";
+  } else if (query && radius > 0 && !usedLocalSearch) {
+    note =
+      "Could not open Shiply Local search, so this is the national table. Sign in again if the Local tab is missing.";
   } else if (rows.length === 0) {
     note = `Opened ${page.url()} but found no Shiply listing table.`;
   } else if (jobs.length === 0) {
-    note = `Read ${rows.length} listings; ${mapped} mapped to the city book, none could be kept.`;
+    note = `Read ${rows.length} listings; ${kept} could be kept.`;
   }
 
   console.log(
-    `[shiply] url=${page.url()} rows=${rows.length} mapped=${mapped} jobs=${jobs.length} auth=${auth.hint}`,
+    `[shiply] url=${page.url()} local=${usedLocalSearch} radius=${radius} city=${query?.startingCity ?? "-"} rows=${rows.length} kept=${kept} jobs=${jobs.length} auth=${auth.hint}`,
   );
 
   return { jobs, listingCount: rows.length, note };

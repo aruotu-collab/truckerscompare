@@ -216,7 +216,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   };
 
   const syncFromShiply = async () => {
-    const res = await fetch("/api/shiply/sync", { method: "POST" });
+    const res = await fetch("/api/shiply/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startingCity: profile.startingCity,
+        radiusMiles: profile.maxDeadMiles,
+      }),
+    });
     const body = await readApiJson<{
       error?: string;
       jobCount?: number;
@@ -282,7 +289,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const market = useMemo(
     () =>
-      analyseMarket(profile, liveJobs.length > 0 ? liveJobs : undefined),
+      analyseMarket(profile, liveJobs.length > 0 ? liveJobs : undefined, {
+        applyPickupRadius: liveJobs.length === 0,
+      }),
     [profile, liveJobs],
   );
 

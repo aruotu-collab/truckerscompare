@@ -16,6 +16,7 @@ export function ConnectShiply() {
     refreshShiply,
     acceptPulledJobs,
     syncFromShiply,
+    profile,
   } = useAppState();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,6 +79,11 @@ export function ConnectShiply() {
     setError("");
     void fetch(liveViewUrl ? "/api/shiply/finish" : "/api/shiply/sync", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startingCity: profile.startingCity,
+        radiusMiles: profile.maxDeadMiles,
+      }),
     })
       .then(async (res) => {
         const body = await readApiJson<{
@@ -110,7 +116,7 @@ export function ConnectShiply() {
 
       <Step n={1} title="Set where the vehicle is">
         <p className="text-sm text-muted">
-          Do this first. Dead miles and winners use these cities.
+          Do this first. Refresh uses these as the Shiply Local search.
         </p>
         <div className="mt-4">
           <WhereYouAre compact />
@@ -120,8 +126,11 @@ export function ConnectShiply() {
       {connected && !liveViewUrl ? (
         <Step n={2} title="Refresh the jobs you can already see" done>
           <p className="text-sm text-muted">
-            You are connected. Use this most days — you should not need to sign
-            into Shiply again.
+            Refresh runs Shiply Local search for collections within{" "}
+            {profile.maxDeadMiles > 0
+              ? `${profile.maxDeadMiles} miles of ${profile.startingCity}`
+              : `the whole country`}
+            . That list is the book — we do not thin it again.
           </p>
           <p className="mt-2 text-sm">
             <span className="text-good">Connected</span>

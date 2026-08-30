@@ -9,6 +9,7 @@ import {
   saveConnectionMeta,
   saveLiveJobs,
 } from "@/lib/marketplace-server";
+import { parseShiplySearch } from "@/lib/shiply-search";
 import {
   extractVisibleJobs,
   openShiplyPage,
@@ -19,7 +20,7 @@ import { driverFacingError } from "@/lib/user-error";
 
 export const maxDuration = 120;
 
-export async function POST() {
+export async function POST(request: Request) {
   if (!browserbaseConfigured()) {
     return NextResponse.json(
       { error: "Browserbase is not configured on this environment." },
@@ -46,7 +47,8 @@ export async function POST() {
     const { browser, page } = await openShiplyPage(session.connectUrl);
     let extracted: ShiplyExtract = { jobs: [], listingCount: 0, note: null };
     try {
-      extracted = await extractVisibleJobs(page);
+      const query = parseShiplySearch(await request.json().catch(() => ({})));
+      extracted = await extractVisibleJobs(page, query);
     } finally {
       await browser.close().catch(() => undefined);
     }

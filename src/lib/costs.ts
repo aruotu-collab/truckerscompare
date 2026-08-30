@@ -1,4 +1,10 @@
-import { headingDelta, roadMiles, roadMinutes, routePairSource } from "./geo";
+import {
+  headingDelta,
+  lookupCity,
+  roadMiles,
+  roadMinutes,
+  routePairSource,
+} from "./geo";
 import { vehicleCompatible } from "./profile";
 import type {
   CostBreakdown,
@@ -64,9 +70,30 @@ export function costJob(
     fuelPricePerLitre: scenario.fuelPricePerLitre ?? profile.fuelPricePerLitre,
   };
   const quote = scenario.quote && scenario.quote > 0 ? scenario.quote : job.revenue;
-  const deadhead = driveLeg("deadhead", start, job.pickupCity);
-  const loaded = driveLeg("loaded", job.pickupCity, job.deliveryCity);
+  const pickupKnown = Boolean(lookupCity(job.pickupCity));
+  const deliveryKnown = Boolean(lookupCity(job.deliveryCity));
+  let deadhead = driveLeg("deadhead", start, job.pickupCity);
+  let loaded = driveLeg("loaded", job.pickupCity, job.deliveryCity);
   const home = driveLeg("home", job.deliveryCity, profile.homeCity);
+  if (!pickupKnown) {
+    const guess = Math.round(
+      Math.min(18, Math.max(8, (profile.maxDeadMiles || 40) * 0.35)),
+    );
+    deadhead = {
+      ...deadhead,
+      miles: guess,
+      minutes: Math.max(8, Math.round((guess / 28) * 60)),
+      source: "estimate",
+    };
+  }
+  if (job.listedMiles && job.listedMiles > 0 && (!pickupKnown || !deliveryKnown)) {
+    loaded = {
+      ...loaded,
+      miles: job.listedMiles,
+      minutes: Math.max(8, Math.round((job.listedMiles / 42) * 60)),
+      source: "estimate",
+    };
+  }
   const legs = [deadhead, loaded, home];
   const routeSource: RouteSource = legs.every((leg) => leg.source === "osrm")
     ? "osrm"

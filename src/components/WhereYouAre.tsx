@@ -57,9 +57,8 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
       </h2>
       {compact ? null : (
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Dead miles are the road run from where the vehicle is now to
-          collection. Only jobs inside the radius are ranked. If the start
-          city is wrong, the winners are wrong.
+          Refresh from Shiply uses this city and radius as a Local search —
+          the same terms you would type on Shiply. Change them, then refresh.
         </p>
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">

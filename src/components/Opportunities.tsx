@@ -30,7 +30,7 @@ type SortKey =
   | "pickupMiles";
 
 export function Opportunities() {
-  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile } =
+  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile, book } =
     useAppState();
   const [search, setSearch] = useState("");
   const [scoreMin, setScoreMin] = useState(0);
@@ -90,9 +90,9 @@ export function Opportunities() {
           <p className="mt-1 text-sm text-muted">
             {`${rows.length} of ${market.jobs.length} shown${
               market.market.pickupRadiusMiles > 0
-                ? ` within ${pickupRadiusLabel(market.market.pickupRadiusMiles)} of ${profile.startingCity}`
+                ? ` · ${book === "shiply" ? "Shiply search" : "within"} ${pickupRadiusLabel(market.market.pickupRadiusMiles)} of ${profile.startingCity}`
                 : ""
-            }. Select up to four, then compare.`}
+            }.${book === "shiply" ? " Change city or radius, then Refresh from Shiply." : ""} Select up to four, then compare.`}
           </p>
         </div>
         <Link

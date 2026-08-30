@@ -26,6 +26,7 @@ export function getRawJobs(): RawJob[] {
 export function analyseMarket(
   profile: OperatorProfile,
   rawJobs: RawJob[] = RAW_JOBS,
+  options: { applyPickupRadius?: boolean } = {},
 ): AnalysedMarket {
   const book = rawJobs.length > 0 ? rawJobs : RAW_JOBS;
   const costed = book.map((job) => {
@@ -39,7 +40,7 @@ export function analyseMarket(
   });
   const radius = profile.maxDeadMiles;
   const scoped =
-    radius > 0
+    options.applyPickupRadius !== false && radius > 0
       ? costed.filter((row) => row.economics.pickupMiles <= radius)
       : costed;
 

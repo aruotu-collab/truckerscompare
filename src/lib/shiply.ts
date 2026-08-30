@@ -1,4 +1,4 @@
-import { matchCity } from "./geo";
+import { placeLabel } from "./geo";
 import type { JobSource, RawJob, VehicleType } from "./types";
 
 const VEHICLES = new Set<VehicleType>([
@@ -25,6 +25,7 @@ export interface ImportedListing {
   postedMinutesAgo?: number;
   quoteCount?: number;
   description?: string;
+  listedMiles?: number | null;
 }
 
 export interface ImportResult {
@@ -44,10 +45,14 @@ function listingId(item: ImportedListing, index: number): string {
 }
 
 export function listingToJob(item: ImportedListing, index: number): RawJob | string {
-  const pickup = matchCity(item.pickupCity);
-  const delivery = matchCity(item.deliveryCity);
-  if (!pickup) return `Row ${index + 1}: unknown pickup city “${item.pickupCity}”.`;
-  if (!delivery) return `Row ${index + 1}: unknown delivery city “${item.deliveryCity}”.`;
+  const pickup = placeLabel(item.pickupCity);
+  const delivery = placeLabel(item.deliveryCity);
+  if (!pickup || pickup === "Unknown") {
+    return `Row ${index + 1}: missing pickup.`;
+  }
+  if (!delivery || delivery === "Unknown") {
+    return `Row ${index + 1}: missing delivery.`;
+  }
   const revenue = Number(item.revenue);
   if (!Number.isFinite(revenue) || revenue < 0) {
     return `Row ${index + 1}: revenue must be a number.`;
@@ -77,6 +82,10 @@ export function listingToJob(item: ImportedListing, index: number): RawJob | str
     description: item.description?.trim() || "",
     loadingMinutesKnown: false,
     listingUrl: item.listingUrl?.trim() || null,
+    listedMiles: (() => {
+      const miles = Number(item.listedMiles);
+      return Number.isFinite(miles) && miles > 0 ? miles : null;
+    })(),
   };
 }
 
