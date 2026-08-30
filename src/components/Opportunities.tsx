@@ -18,6 +18,7 @@ import {
 import { JOB_SOURCES } from "@/lib/marketplaces";
 import type { AnalysedJob, JobSource } from "@/lib/types";
 import { clsx } from "./clsx";
+import { TripDiagram } from "./TripDiagram";
 import { PickupRadius } from "./WhereYouAre";
 import { BandPill, JobFlags, MarketplaceBids, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
@@ -222,6 +223,9 @@ export function Opportunities() {
                     {routeLabel(job.pickupCity, job.deliveryCity)}
                   </Link>
                   <div className="mt-0.5 text-xs text-muted">{loadHeadline(job)}</div>
+                  <div className="mt-2 min-w-[280px] max-w-md">
+                    <TripDiagram job={job} size="sm" surface="ink" />
+                  </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <SourceChip source={job.source} />
                     {job.winnerLabels.map((w) => (
@@ -310,6 +314,9 @@ function MobileCard({
           </div>
         </div>
         <ScoreRing score={job.score} band={job.band} size="sm" />
+      </div>
+      <div className="mt-3">
+        <TripDiagram job={job} size="sm" />
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
         <div>

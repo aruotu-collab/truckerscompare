@@ -19,6 +19,7 @@ import {
   winnerLabel,
 } from "@/lib/format";
 import type { AnalysedJob, CombinationPlan, WinnerKind } from "@/lib/types";
+import { TripDiagram } from "./TripDiagram";
 import { BandPill, MarketplaceBids, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
 export function Overview() {
@@ -160,6 +161,9 @@ function WinnerJobCard({
           </div>
           <ScoreRing score={job.score} band={job.band} />
         </div>
+        <div className="mt-3">
+          <TripDiagram job={job} size="sm" />
+        </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           <div>
             <div className="text-[11px] text-muted">Profit</div>
@@ -264,6 +268,9 @@ function Bucket({
                     <span className="tabular text-sm text-muted">{job.score}</span>
                   </div>
                   <div className="mt-0.5 text-[11px] text-muted">{loadHeadline(job)}</div>
+                  <div className="mt-2">
+                    <TripDiagram job={job} size="sm" />
+                  </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted">
                     <SourceChip source={job.source} />
                     <BandPill band={job.band} />

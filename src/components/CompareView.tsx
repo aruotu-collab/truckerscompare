@@ -8,6 +8,7 @@ import { compareTradeoff, vsHeadline } from "@/lib/explanations";
 import { gbp, hasMarketBid, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minutesLabel, routeLabel, workingBid } from "@/lib/format";
 import type { AnalysedJob } from "@/lib/types";
 import { clsx } from "./clsx";
+import { TripDiagram } from "./TripDiagram";
 import { BandPill, OpenOnMarketplace, ScoreRing, SourceChip } from "./ui";
 
 export function CompareView() {
@@ -122,6 +123,9 @@ export function CompareView() {
           {routeLabel(winner.pickupCity, winner.deliveryCity)}
         </h2>
         <p className="mt-1 text-sm text-muted">{loadHeadline(winner)}</p>
+        <div className="mt-3 max-w-xl">
+          <TripDiagram job={winner} size="sm" />
+        </div>
         <p className="mt-3 max-w-3xl text-sm leading-6">{why}</p>
         <p className="mt-3 text-xs text-muted">
           The score does not override a real-life constraint. If you must finish
@@ -160,6 +164,9 @@ function VsPanel({
               </div>
             </div>
             <BandPill band={job.band} />
+          </div>
+          <div className="mt-3">
+            <TripDiagram job={job} size="sm" />
           </div>
           <ul className="mt-3 space-y-1 text-sm">
             {vsHeadline(job, job.id === a.id ? b : a).map((line) => (

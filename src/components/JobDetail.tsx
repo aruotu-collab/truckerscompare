@@ -30,6 +30,7 @@ import {
   workingBid,
 } from "@/lib/format";
 import { QuoteDecision } from "./QuoteDecision";
+import { TripDiagram } from "./TripDiagram";
 import { BandPill, JobFlags, Metric, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 import { clsx } from "./clsx";
 
@@ -230,6 +231,9 @@ export function JobDetail() {
                 ? "Road + estimate"
                 : "Estimated"}
           </div>
+        </div>
+        <div className="mt-4 rounded-md border border-line/70 bg-ink/40 px-2 py-3">
+          <TripDiagram job={job} surface="ink" />
         </div>
         <ol className="mt-4 space-y-3">
           {job.legs.map((leg) => (
