@@ -66,13 +66,15 @@ export function namedQuotes(text: string): number[] {
 
 function quotesSection(text: string): string | null {
   const match = text.match(
-    /(?:current quotes|lowest quote)([\s\S]{0,3000}?)(?:place quote|questions from transport|notify me if other)/i,
+    /(?:current quotes|lowest\s+(?:quote|bid|offer))([\s\S]{0,3000}?)(?:place quote|questions from transport|notify me if other)/i,
   );
   return match ? match[0] : null;
 }
 
 function labelledLowest(text: string): number {
-  const match = text.match(/lowest\s+quote[^£]{0,48}£\s?([\d,]+(?:\.\d{1,2})?)/i);
+  const match = text.match(
+    /lowest\s+(?:current\s+)?(?:quote|bid|offer)[^£]{0,60}£\s?([\d,]+(?:\.\d{1,2})?)/i,
+  ) ?? text.match(/lowest[^£]{0,40}£\s?([\d,]+(?:\.\d{1,2})?)/i);
   if (!match) return 0;
   const amount = money(match[1]!);
   return validBid(amount) ? amount : 0;
@@ -188,7 +190,10 @@ export function cargoDescription(title: string, notes: string): string {
 }
 
 export function listingParseIsComplete(parsed: ShiplyListingParse): boolean {
-  return parsed.lowestBid > 0 && (parsed.quoteCount >= 2 || /lowest quote/i.test(parsed.snippet));
+  return (
+    parsed.lowestBid > 0 &&
+    (parsed.quoteCount >= 1 || /lowest\s+(?:quote|bid)/i.test(parsed.snippet))
+  );
 }
 
 function listedMilesFromText(text: string): number | null {

@@ -40,6 +40,7 @@ type SearchRow = {
   delivery: string;
   date: string;
   quotes: number;
+  lowestBid: number;
   listedMiles: number | null;
 };
 
@@ -127,15 +128,29 @@ async function readSearchRows(page: Page): Promise<SearchRow[]> {
         title: (link.textContent || "").replace(/\s+/g, " ").trim(),
         pickup: cells[1] || "",
         delivery: cells[2] || "",
-        date: cells[4] || "",
+        date: (() => {
+          const dated = cells.find((cell) =>
+            /\d+\s*(min|hour|hr|day)|yesterday|\d{1,2}\/\d{1,2}\/\d{2,4}/i.test(cell),
+          );
+          return dated || cells[4] || "";
+        })(),
         listedMiles: (() => {
           const raw = (cells[3] || "").replace(/,/g, "");
           const miles = Number(raw);
           return Number.isFinite(miles) && miles > 0 && miles < 4000 ? miles : null;
         })(),
+        lowestBid: (() => {
+          for (const cell of cells) {
+            const match = cell.match(/£\s?([\d,]+(?:\.\d{1,2})?)/);
+            if (!match) continue;
+            const amount = Number(match[1]!.replace(/,/g, ""));
+            if (Number.isFinite(amount) && amount >= 15 && amount <= 20000) return amount;
+          }
+          return 0;
+        })(),
         quotes: (() => {
           const fifth = Number((cells[5] || "").replace(/\D/g, ""));
-          if (fifth > 0 && fifth < 80) return fifth;
+          if (fifth > 0 && fifth < 80 && !/£/.test(cells[5] || "")) return fifth;
           for (let i = cells.length - 1; i >= 3; i -= 1) {
             if (/^\d{1,2}$/.test(cells[i] || "")) return Number(cells[i]);
           }
@@ -159,6 +174,7 @@ async function readSearchRows(page: Page): Promise<SearchRow[]> {
         delivery: text,
         date: "",
         listedMiles: null,
+        lowestBid: 0,
         quotes: 0,
       });
     }
@@ -191,6 +207,15 @@ async function readListingDetail(
   await page.goto(listingUrl, { waitUntil: "domcontentloaded", timeout: 25000 });
   await waitForShiplyReady(page);
   if (isShiplyLogin(page)) throw new ShiplyAuthRequired();
+  await page
+    .waitForFunction(
+      () =>
+        /lowest\s+(?:quote|bid)|£\s?\d{2,}\s+[A-Za-z]/i.test(
+          document.body?.innerText || "",
+        ),
+      { timeout: 4000 },
+    )
+    .catch(() => undefined);
   const html = await page.content();
   return parseShiplyListing(html, fallbackTitle);
 }
@@ -241,7 +266,7 @@ export async function extractVisibleJobs(
       continue;
     }
     kept += 1;
-    const revenue = detail?.lowestBid ?? 0;
+    const revenue = detail?.lowestBid || row.lowestBid || 0;
     if (revenue) withBudget += 1;
 
     const fromUrl = cargoFromListingUrl(row.listingUrl);
@@ -260,11 +285,11 @@ export async function extractVisibleJobs(
           ? detail.category
           : load || "General",
       revenue,
-      highestBid: detail?.highestBid || revenue,
+      highestBid: detail?.highestBid || revenue || row.lowestBid,
       weightKg: detail?.weightKg ?? null,
       collectionWindow: detail?.collectionWindow,
       deliveryWindow: detail?.deliveryWindow,
-      quoteCount: detail?.quoteCount || row.quotes,
+      quoteCount: detail?.quoteCount || row.quotes || (revenue ? 1 : 0),
       postedMinutesAgo: parsePosted(row.date),
       description: load,
       listedMiles: detail?.listedMiles ?? row.listedMiles,
