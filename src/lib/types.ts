@@ -14,6 +14,19 @@ export type CompetitionLevel = "low" | "medium" | "high";
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
+export type RouteSource = "osrm" | "estimate" | "mixed";
+
+export type RouteLegKind = "deadhead" | "loaded" | "home";
+
+export interface RouteLeg {
+  kind: RouteLegKind;
+  from: string;
+  to: string;
+  miles: number;
+  minutes: number;
+  source: "osrm" | "estimate";
+}
+
 export type WinnerKind =
   | "best_overall"
   | "highest_profit"
@@ -113,7 +126,11 @@ export interface AnalysedJob extends RawJob {
   totalMiles: number;
   loadedMinutes: number;
   pickupMinutes: number;
+  deliveryToHomeMinutes: number;
+  startToHomeMinutes: number;
   totalHours: number;
+  legs: RouteLeg[];
+  routeSource: RouteSource;
   costs: CostBreakdown;
   profit: number;
   profitPerHour: number;

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useAppState } from "@/context/AppState";
 import { compareTradeoff, vsHeadline } from "@/lib/explanations";
-import { gbp, hoursLabel, milesLabel, routeLabel } from "@/lib/format";
+import { gbp, hoursLabel, milesLabel, minutesLabel, routeLabel } from "@/lib/format";
 import type { AnalysedJob } from "@/lib/types";
 import { clsx } from "./clsx";
 import { BandPill, ScoreRing } from "./ui";
@@ -192,6 +192,11 @@ function rows(jobs: AnalysedJob[]) {
       best(jobs.map((j) => j.deadMiles), false),
     ),
     pack(
+      "Deadhead time",
+      jobs.map((j) => minutesLabel(j.pickupMinutes)),
+      best(jobs.map((j) => j.pickupMinutes), false),
+    ),
+    pack(
       "Total miles",
       jobs.map((j) => milesLabel(j.totalMiles)),
       best(jobs.map((j) => j.totalMiles), false),
@@ -200,6 +205,11 @@ function rows(jobs: AnalysedJob[]) {
       "Time",
       jobs.map((j) => hoursLabel(j.totalHours)),
       best(jobs.map((j) => j.totalHours), false),
+    ),
+    pack(
+      "Finish to home",
+      jobs.map((j) => `${milesLabel(j.deliveryToHomeMiles)} · ${minutesLabel(j.deliveryToHomeMinutes)}`),
+      best(jobs.map((j) => j.deliveryToHomeMiles), false),
     ),
     pack(
       "Towards home",
@@ -215,11 +225,6 @@ function rows(jobs: AnalysedJob[]) {
       "Vehicle fit",
       jobs.map((j) => `${j.vehicleFit}/10`),
       best(jobs.map((j) => j.vehicleFit)),
-    ),
-    pack(
-      "Finish to home",
-      jobs.map((j) => milesLabel(j.deliveryToHomeMiles)),
-      best(jobs.map((j) => j.deliveryToHomeMiles), false),
     ),
     pack(
       "Source",

@@ -18,6 +18,7 @@ import {
   gbp,
   hoursLabel,
   milesLabel,
+  minutesLabel,
   postedLabel,
   routeLabel,
 } from "@/lib/format";
@@ -133,6 +134,55 @@ export function JobDetail() {
           {milesLabel(job.deadMiles)}
         </Metric>
       </div>
+
+      <section className="rounded-lg border border-line bg-panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-medium">Route</h2>
+            <p className="mt-1 text-xs text-muted">
+              Start → pickup → delivery → home. Miles and times from the UK road
+              network, not crow-flies.
+            </p>
+          </div>
+          <div className="text-[11px] uppercase tracking-wider text-muted">
+            {job.routeSource === "osrm"
+              ? "Road network"
+              : job.routeSource === "mixed"
+                ? "Road + estimate"
+                : "Estimated"}
+          </div>
+        </div>
+        <ol className="mt-4 space-y-3">
+          {job.legs.map((leg) => (
+            <li
+              key={`${leg.kind}-${leg.from}-${leg.to}`}
+              className="flex flex-wrap items-center justify-between gap-2 border-b border-line/70 pb-3 last:border-0 last:pb-0"
+            >
+              <div>
+                <div className="text-sm">
+                  {leg.from} → {leg.to}
+                </div>
+                <div className="mt-0.5 text-[11px] uppercase tracking-wider text-muted">
+                  {leg.kind === "deadhead"
+                    ? "Deadhead to collection"
+                    : leg.kind === "loaded"
+                      ? "Loaded run"
+                      : "After delivery, to home"}
+                </div>
+              </div>
+              <div className="text-right text-sm tabular">
+                <div>{milesLabel(leg.miles)}</div>
+                <div className="text-xs text-muted">{minutesLabel(leg.minutes)}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-4 text-xs text-muted">
+          Working drive {minutesLabel(job.pickupMinutes + job.loadedMinutes)}.
+          Finish is {minutesLabel(job.deliveryToHomeMinutes)} from {profile.homeCity}.
+          Direct home from here would be {minutesLabel(job.startToHomeMinutes)}.
+        </p>
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-line bg-panel p-4">

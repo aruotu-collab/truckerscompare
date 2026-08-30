@@ -1,4 +1,14 @@
 import type { City } from "./types";
+import matrix from "./route-matrix.json";
+
+type RoadMatrix = {
+  source: string;
+  fetchedAt: string;
+  miles: Record<string, number>;
+  minutes: Record<string, number>;
+};
+
+const ROAD = matrix as RoadMatrix;
 
 export const CITIES: City[] = [
   { name: "Birmingham", lat: 52.4862, lng: -1.8904, region: "West Midlands" },
@@ -56,15 +66,55 @@ export function haversineMiles(a: City, b: City): number {
   return 2 * r * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** Road miles: crow-flies plus a UK road-factor. */
-export function roadMiles(from: string, to: string): number {
-  if (from === to) return 4;
-  return Math.round(haversineMiles(cityByName(from), cityByName(to)) * 1.28);
+function pairKey(from: string, to: string): string {
+  return `${from}|${to}`;
 }
 
-export function roadMinutes(miles: number): number {
+export function hasRoadMatrix(from: string, to: string): boolean {
+  return Object.prototype.hasOwnProperty.call(ROAD.miles, pairKey(from, to));
+}
+
+/** Driving miles from the UK road matrix, with a haversine fallback. */
+export function roadMiles(from: string, to: string): number {
+  const hit = ROAD.miles[pairKey(from, to)];
+  if (typeof hit === "number") return hit;
+  if (from === to) return 4;
+  return Math.round(haversineMiles(cityByName(from), cityByName(to)) * 1.28 * 10) / 10;
+}
+
+/** Driving minutes from the UK road matrix, with a speed-band fallback. */
+export function roadMinutes(from: string, to: string): number {
+  const hit = ROAD.minutes[pairKey(from, to)];
+  if (typeof hit === "number") return hit;
+  const miles = roadMiles(from, to);
   const cruisingMph = miles < 40 ? 28 : 42;
-  return Math.round((miles / cruisingMph) * 60);
+  return Math.max(8, Math.round((miles / cruisingMph) * 60));
+}
+
+export function routePairSource(from: string, to: string): "osrm" | "estimate" {
+  return hasRoadMatrix(from, to) ? "osrm" : "estimate";
+}
+
+export function headingDegrees(from: string, to: string): number {
+  if (from === to) return 0;
+  const a = cityByName(from);
+  const b = cityByName(to);
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
+  const x =
+    Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) -
+    Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/** Smallest angle between two headings, 0–180. */
+export function headingDelta(
+  fromA: string,
+  toA: string,
+  fromB: string,
+  toB: string,
+): number {
+  const d = Math.abs(headingDegrees(fromA, toA) - headingDegrees(fromB, toB));
+  return Math.min(d, 360 - d);
 }
 
 export function regionOf(name: string): string {

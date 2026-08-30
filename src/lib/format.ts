@@ -24,6 +24,14 @@ export function hoursLabel(hours: number): string {
   return `${h}h ${m}m`;
 }
 
+export function minutesLabel(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 export function milesLabel(n: number): string {
   return `${Math.round(n)} mi`;
 }

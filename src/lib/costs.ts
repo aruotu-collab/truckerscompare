@@ -1,10 +1,12 @@
-import { roadMiles, roadMinutes } from "./geo";
+import { headingDelta, roadMiles, roadMinutes, routePairSource } from "./geo";
 import { vehicleCompatible } from "./profile";
 import type {
   AnalysedJob,
   CostBreakdown,
   OperatorProfile,
   RawJob,
+  RouteLeg,
+  RouteSource,
 } from "./types";
 
 const LITRES_PER_UK_GALLON = 4.54609;
@@ -25,15 +27,42 @@ export function estimateTolls(loadedMiles: number, pickup: string, delivery: str
   return tolls;
 }
 
+function driveLeg(
+  kind: RouteLeg["kind"],
+  from: string,
+  to: string,
+): RouteLeg {
+  return {
+    kind,
+    from,
+    to,
+    miles: roadMiles(from, to),
+    minutes: roadMinutes(from, to),
+    source: routePairSource(from, to),
+  };
+}
+
 export function costJob(job: RawJob, profile: OperatorProfile) {
-  const pickupMiles = roadMiles(profile.startingCity, job.pickupCity);
-  const loadedMiles = roadMiles(job.pickupCity, job.deliveryCity);
-  const deliveryToHomeMiles = roadMiles(job.deliveryCity, profile.homeCity);
+  const deadhead = driveLeg("deadhead", profile.startingCity, job.pickupCity);
+  const loaded = driveLeg("loaded", job.pickupCity, job.deliveryCity);
+  const home = driveLeg("home", job.deliveryCity, profile.homeCity);
+  const legs = [deadhead, loaded, home];
+  const routeSource: RouteSource = legs.every((leg) => leg.source === "osrm")
+    ? "osrm"
+    : legs.every((leg) => leg.source === "estimate")
+      ? "estimate"
+      : "mixed";
+
+  const pickupMiles = deadhead.miles;
+  const loadedMiles = loaded.miles;
+  const deliveryToHomeMiles = home.miles;
   const startToHomeMiles = roadMiles(profile.startingCity, profile.homeCity);
   const deadMiles = pickupMiles;
   const totalMiles = pickupMiles + loadedMiles;
-  const pickupMinutes = roadMinutes(pickupMiles);
-  const loadedMinutes = roadMinutes(loadedMiles);
+  const pickupMinutes = deadhead.minutes;
+  const loadedMinutes = loaded.minutes;
+  const deliveryToHomeMinutes = home.minutes;
+  const startToHomeMinutes = roadMinutes(profile.startingCity, profile.homeCity);
   const handling = (job.loadingMinutesKnown ? LOADING_MINUTES : 55) + UNLOADING_MINUTES;
   const totalHours = (pickupMinutes + loadedMinutes + handling) / 60;
 
@@ -78,6 +107,7 @@ export function costJob(job: RawJob, profile: OperatorProfile) {
     job.deliveryCity,
     towardsHomeMiles,
     deadMiles,
+    loadedMiles,
   );
 
   return {
@@ -90,7 +120,11 @@ export function costJob(job: RawJob, profile: OperatorProfile) {
     totalMiles,
     loadedMinutes,
     pickupMinutes,
+    deliveryToHomeMinutes,
+    startToHomeMinutes,
     totalHours: round2(totalHours),
+    legs,
+    routeSource,
     costs,
     profit,
     profitPerHour,
@@ -109,6 +143,7 @@ function routeFitScore(
   delivery: string,
   towardsHome: number,
   deadMiles: number,
+  loadedMiles: number,
 ): number {
   let score = 6;
   if (deadMiles <= 12) score += 2;
@@ -120,6 +155,18 @@ function routeFitScore(
   else if (towardsHome < -80) score -= 2;
   if (pickup === start) score += 1;
   if (delivery === home) score += 1;
+
+  const deadRatio = loadedMiles > 0 ? deadMiles / loadedMiles : 1;
+  if (deadRatio <= 0.15) score += 1;
+  else if (deadRatio > 0.85) score -= 1;
+
+  if (start !== home && start !== delivery) {
+    const alignment = headingDelta(start, delivery, start, home);
+    if (alignment <= 35) score += 2;
+    else if (alignment <= 70) score += 1;
+    else if (alignment >= 120) score -= 1;
+  }
+
   return clamp(score, 1, 10);
 }
 

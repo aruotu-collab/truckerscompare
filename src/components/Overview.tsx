@@ -32,8 +32,9 @@ export function Overview() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
           You are in {summary.startingCity}. Home is {summary.homeCity}. The
-          book is {summary.qualityLabel.toLowerCase()}. Do not read 100 rows —
-          start with the winners, then inspect the evidence.
+          book is {summary.qualityLabel.toLowerCase()}. Miles and times are UK
+          road distances, not crow-flies. Do not read 100 rows — start with the
+          winners, then inspect the evidence.
         </p>
       </div>
 

@@ -1,6 +1,6 @@
 import { costJob } from "./costs";
 import { generateDemoJobs } from "./demo-jobs";
-import { roadMiles } from "./geo";
+import { roadMiles, roadMinutes } from "./geo";
 import type {
   AnalysedJob,
   AnalysedMarket,
@@ -214,7 +214,7 @@ function personalScoreOf(
       label: "Route fit",
       score: route,
       max: 10,
-      note: "Direction versus home and current starting point",
+      note: "Road direction versus home, deadhead ratio and current starting point",
     },
     {
       key: "vehicle",
@@ -325,7 +325,7 @@ function findCombinations(
       const b = usable[j]!;
       const gap = roadMiles(a.deliveryCity, b.pickupCity);
       if (gap > 28) continue;
-      const hours = a.totalHours + b.totalHours + gap / 38;
+      const hours = a.totalHours + b.totalHours + roadMinutes(a.deliveryCity, b.pickupCity) / 60;
       if (hours > profile.workingHours + 1.25) continue;
       const extraDeadCost = gap * (0.35 + profile.runningCostPerMile);
       const profit = a.profit + b.profit - extraDeadCost;
