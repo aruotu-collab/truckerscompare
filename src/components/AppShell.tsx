@@ -99,17 +99,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <div className="flex items-center gap-3">
               {user ? (
-                <>
-                  <span className="text-xs text-text">Welcome, {welcomeName}</span>
+                <div className="flex items-center gap-2 text-xs">
+                  <span>
+                    Welcome, <span className="text-gold">{welcomeName}</span>
+                  </span>
                   <form action="/auth/sign-out" method="post">
                     <button
                       type="submit"
-                      className="text-xs text-muted hover:text-text"
+                      className="text-muted hover:text-text"
                     >
                       Sign out
                     </button>
                   </form>
-                </>
+                </div>
               ) : (
                 <Link href="/sign-in" className="text-xs text-gold hover:underline">
                   Sign in
