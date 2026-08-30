@@ -15,6 +15,7 @@ interface ProfileRow {
   id: string;
   display_name: string;
   home_city: string;
+  home_location?: string | null;
   starting_city: string;
   search_location?: string | null;
   vehicle_type: string;
@@ -45,6 +46,7 @@ export function rowToProfile(row: ProfileRow): OperatorProfile {
   return {
     displayName: row.display_name || DEFAULT_PROFILE.displayName,
     homeCity: row.home_city || DEFAULT_PROFILE.homeCity,
+    homeLocation: row.home_location?.trim() || DEFAULT_PROFILE.homeLocation,
     startingCity: row.starting_city || DEFAULT_PROFILE.startingCity,
     searchLocation: row.search_location?.trim() || DEFAULT_PROFILE.searchLocation,
     vehicleType: vehicle(row.vehicle_type),
@@ -72,6 +74,7 @@ export function profileToRow(userId: string, profile: OperatorProfile) {
     id: userId,
     display_name: profile.displayName,
     home_city: profile.homeCity,
+    home_location: profile.homeLocation.trim(),
     starting_city: profile.startingCity,
     search_location: profile.searchLocation.trim(),
     vehicle_type: profile.vehicleType,
@@ -93,16 +96,23 @@ export async function fetchRemoteProfile(
 ): Promise<OperatorProfile | null> {
   const supabase = createBrowserSupabase();
   const columns =
-    "id, display_name, home_city, starting_city, search_location, vehicle_type, payload_kg, mpg, fuel_price_per_litre, running_cost_per_mile, driver_hourly_cost, marketplace_fee_percent, target_profit_per_hour, min_profit, max_dead_miles, working_hours";
-  const fallback =
-    "id, display_name, home_city, starting_city, vehicle_type, payload_kg, mpg, fuel_price_per_litre, running_cost_per_mile, driver_hourly_cost, marketplace_fee_percent, target_profit_per_hour, min_profit, max_dead_miles, working_hours";
-  const first = await supabase.from("profiles").select(columns).eq("id", userId).maybeSingle();
-  const { data, error } =
-    first.error && /search_location/i.test(first.error.message)
-      ? await supabase.from("profiles").select(fallback).eq("id", userId).maybeSingle()
-      : first;
-  if (error) throw error;
-  return data ? rowToProfile(data as ProfileRow) : null;
+    "id, display_name, home_city, home_location, starting_city, search_location, vehicle_type, payload_kg, mpg, fuel_price_per_litre, running_cost_per_mile, driver_hourly_cost, marketplace_fee_percent, target_profit_per_hour, min_profit, max_dead_miles, working_hours";
+  let select = columns;
+  for (;;) {
+    const first = await supabase.from("profiles").select(select).eq("id", userId).maybeSingle();
+    if (!first.error) {
+      return first.data ? rowToProfile(first.data as unknown as ProfileRow) : null;
+    }
+    if (/home_location/i.test(first.error.message) && select.includes("home_location")) {
+      select = select.replace(", home_location", "");
+      continue;
+    }
+    if (/search_location/i.test(first.error.message) && select.includes("search_location")) {
+      select = select.replace(", search_location", "");
+      continue;
+    }
+    throw first.error;
+  }
 }
 
 export async function upsertRemoteProfile(
@@ -112,12 +122,24 @@ export async function upsertRemoteProfile(
   const supabase = createBrowserSupabase();
   const row = profileToRow(userId, profile);
   const { error } = await supabase.from("profiles").upsert(row, { onConflict: "id" });
-  if (error && /search_location/i.test(error.message)) {
-    const { search_location: _dropped, ...rest } = row;
-    const { error: retry } = await supabase
-      .from("profiles")
-      .upsert(rest, { onConflict: "id" });
-    if (retry) throw retry;
+  if (error && /home_location|search_location/i.test(error.message)) {
+    let next: Record<string, unknown> = { ...row };
+    if (/home_location/i.test(error.message)) {
+      const { home_location: _dropped, ...rest } = next;
+      next = rest;
+    }
+    if (/search_location/i.test(error.message)) {
+      const { search_location: _dropped, ...rest } = next;
+      next = rest;
+    }
+    const retry = await supabase.from("profiles").upsert(next, { onConflict: "id" });
+    if (retry.error && /home_location|search_location/i.test(retry.error.message)) {
+      const { home_location: _h, search_location: _s, ...rest } = next;
+      const again = await supabase.from("profiles").upsert(rest, { onConflict: "id" });
+      if (again.error) throw again.error;
+      return;
+    }
+    if (retry.error) throw retry.error;
     return;
   }
   if (error) throw error;

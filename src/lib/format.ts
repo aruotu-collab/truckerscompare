@@ -101,6 +101,14 @@ export function searchPlaceLabel(profile: {
   return typed || profile.startingCity;
 }
 
+export function homePlaceLabel(profile: {
+  homeLocation?: string | null;
+  homeCity: string;
+}): string {
+  const typed = profile.homeLocation?.trim() ?? "";
+  return typed || profile.homeCity;
+}
+
 export function routeLabel(pickup: string, delivery: string): string {
   return `${pickup} → ${delivery}`;
 }

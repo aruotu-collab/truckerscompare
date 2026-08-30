@@ -64,6 +64,8 @@ export function costJob(
   scenario: JobScenario = {},
 ) {
   const start = scenario.startingCity || profile.startingCity;
+  const startPlace = profile.searchLocation.trim() || start;
+  const homePlace = profile.homeLocation.trim() || profile.homeCity;
   const priced: OperatorProfile = {
     ...profile,
     startingCity: start,
@@ -72,9 +74,9 @@ export function costJob(
   const quote = scenario.quote && scenario.quote > 0 ? scenario.quote : job.revenue;
   const pickupKnown = Boolean(lookupCity(job.pickupCity));
   const deliveryKnown = Boolean(lookupCity(job.deliveryCity));
-  let deadhead = driveLeg("deadhead", start, job.pickupCity);
+  let deadhead = driveLeg("deadhead", startPlace, job.pickupCity);
   let loaded = driveLeg("loaded", job.pickupCity, job.deliveryCity);
-  const home = driveLeg("home", job.deliveryCity, profile.homeCity);
+  const home = driveLeg("home", job.deliveryCity, homePlace);
   if (!pickupKnown) {
     const guess = Math.round(
       Math.min(18, Math.max(8, (profile.maxDeadMiles || 40) * 0.35)),
@@ -86,11 +88,12 @@ export function costJob(
       source: "estimate",
     };
   }
-  if (job.listedMiles && job.listedMiles > 0 && (!pickupKnown || !deliveryKnown)) {
+  if (job.listedMiles && job.listedMiles > 0) {
+    const mph = job.listedMiles < 25 ? 16 : job.listedMiles < 40 ? 28 : 42;
     loaded = {
       ...loaded,
       miles: job.listedMiles,
-      minutes: Math.max(8, Math.round((job.listedMiles / 42) * 60)),
+      minutes: Math.max(8, Math.round((job.listedMiles / mph) * 60)),
       source: "estimate",
     };
   }
@@ -104,13 +107,13 @@ export function costJob(
   const pickupMiles = deadhead.miles;
   const loadedMiles = loaded.miles;
   const deliveryToHomeMiles = home.miles;
-  const startToHomeMiles = roadMiles(start, profile.homeCity);
+  const startToHomeMiles = roadMiles(startPlace, homePlace);
   const deadMiles = pickupMiles;
   const totalMiles = pickupMiles + loadedMiles;
   const pickupMinutes = deadhead.minutes;
   const loadedMinutes = loaded.minutes;
   const deliveryToHomeMinutes = home.minutes;
-  const startToHomeMinutes = roadMinutes(start, profile.homeCity);
+  const startToHomeMinutes = roadMinutes(startPlace, homePlace);
   const handling = (job.loadingMinutesKnown ? LOADING_MINUTES : 55) + UNLOADING_MINUTES;
   const waitingMinutes = Math.max(0, scenario.waitingMinutes ?? 0);
   const totalHours = (pickupMinutes + loadedMinutes + handling + waitingMinutes) / 60;
@@ -152,8 +155,8 @@ export function costJob(
 
   const scheduleFit = totalHours <= profile.workingHours ? 5 : 2;
   const routeFit = routeFitScore(
-    start,
-    profile.homeCity,
+    startPlace,
+    homePlace,
     job.pickupCity,
     job.deliveryCity,
     towardsHomeMiles,

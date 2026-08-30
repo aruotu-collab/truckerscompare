@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { CITIES } from "@/lib/geo";
-import { PICKUP_RADIUS_OPTIONS, pickupRadiusLabel, searchPlaceLabel } from "@/lib/format";
+import {
+  PICKUP_RADIUS_OPTIONS,
+  homePlaceLabel,
+  pickupRadiusLabel,
+  searchPlaceLabel,
+} from "@/lib/format";
 import { useAppState } from "@/context/AppState";
 import { PostcodeLocationField } from "./PostcodeLocationField";
 import { clsx } from "./clsx";
@@ -54,23 +59,40 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
       <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Where you are</p>
       <h2 className="mt-1 text-base font-medium">
         Search {searchPlaceLabel(profile)} · {pickupRadiusLabel(profile.maxDeadMiles)} ·
-        Start {profile.startingCity} · Home {profile.homeCity}
+        Start {profile.startingCity} · Home {homePlaceLabel(profile)}
       </h2>
       {compact ? null : (
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Your postcode is the start point — for finding jobs around you and for
-          costing the empty miles to the pickup.
+          Start and home postcodes are for costing. Refresh uses the start
+          postcode to find jobs around you.
         </p>
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <PostcodeLocationField
+            label="Where you are now — postcode"
+            hint="Enter this to find more listings around you. A postcode such as SE6 is also your starting location. A city name like London finds almost nothing."
+            locate
             value={profile.searchLocation}
             onChange={(next) =>
               setProfile({
                 ...profile,
-                searchLocation: next.searchLocation,
-                startingCity: next.startingCity ?? profile.startingCity,
+                searchLocation: next.postcode,
+                startingCity: next.city ?? profile.startingCity,
+              })
+            }
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <PostcodeLocationField
+            label="Home — postcode"
+            hint="Where you finish the day. We use this to cost the run home."
+            value={profile.homeLocation}
+            onChange={(next) =>
+              setProfile({
+                ...profile,
+                homeLocation: next.postcode,
+                homeCity: next.city ?? profile.homeCity,
               })
             }
           />
@@ -93,7 +115,7 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
         </label>
         <label className="block">
           <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
-            Home city — where you finish the day
+            Home — nearest city
           </span>
           <select
             value={profile.homeCity}

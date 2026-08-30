@@ -109,6 +109,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           const merged = {
             ...remote,
             searchLocation: remote.searchLocation || profileRef.current.searchLocation,
+            homeLocation: remote.homeLocation || profileRef.current.homeLocation,
           };
           setProfileState(merged);
           saveProfile(merged);

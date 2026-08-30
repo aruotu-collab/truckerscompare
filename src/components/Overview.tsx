@@ -42,7 +42,7 @@ export function Overview() {
               This book is the last Shiply Local search: collections within{" "}
               {pickupRadiusLabel(summary.pickupRadiusMiles).toLowerCase()} of{" "}
               {summary.searchLocation}. Starting city {summary.startingCity} is
-              for costing. Home is {summary.homeCity}. Refresh to apply a new
+              for costing. Home is {summary.homeLocation}. Refresh to apply a new
               postcode or radius.{" "}
               {summary.analysed === 0
                 ? "Shiply returned nothing for those terms."
@@ -52,7 +52,7 @@ export function Overview() {
             <>
               You are in {summary.startingCity}, looking{" "}
               {pickupRadiusLabel(summary.pickupRadiusMiles).toLowerCase()} for
-              collection. Home is {summary.homeCity}.{" "}
+              collection. Home is {summary.homeLocation}.{" "}
               {summary.pickupRadiusMiles > 0 && summary.scanned > summary.analysed
                 ? `${summary.analysed} of ${summary.scanned} jobs are inside that ring. `
                 : null}

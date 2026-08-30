@@ -39,6 +39,7 @@ interface JobRow {
   quote_count: number;
   description: string;
   loading_minutes_known: boolean;
+  listed_miles?: number | string | null;
 }
 
 export function rowToJob(row: JobRow): RawJob {
@@ -59,6 +60,10 @@ export function rowToJob(row: JobRow): RawJob {
     description: row.description,
     loadingMinutesKnown: row.loading_minutes_known,
     listingUrl: row.listing_url,
+    listedMiles: (() => {
+      const miles = Number(row.listed_miles);
+      return Number.isFinite(miles) && miles > 0 ? miles : null;
+    })(),
   };
 }
 
@@ -82,6 +87,7 @@ export function jobToRow(userId: string, job: RawJob) {
     quote_count: job.quoteCount,
     description: job.description,
     loading_minutes_known: job.loadingMinutesKnown,
+    listed_miles: job.listedMiles && job.listedMiles > 0 ? job.listedMiles : null,
   };
 }
 
@@ -110,11 +116,32 @@ export async function fetchConnection(
 }
 
 const JOB_SELECT =
-  "source, external_id, listing_url, pickup_city, delivery_city, category, vehicle_required, revenue, highest_bid, weight_kg, collection_window, delivery_window, posted_minutes_ago, quote_count, description, loading_minutes_known";
+  "source, external_id, listing_url, pickup_city, delivery_city, category, vehicle_required, revenue, highest_bid, weight_kg, collection_window, delivery_window, posted_minutes_ago, quote_count, description, loading_minutes_known, listed_miles";
 
-function withoutHighestBid<T extends { highest_bid?: unknown }>(row: T) {
-  const { highest_bid: _dropped, ...rest } = row;
-  return rest;
+function dropOptionalJobColumn(columns: string, message: string): string | null {
+  if (/listed_miles/i.test(message) && columns.includes("listed_miles")) {
+    return columns.replace(", listed_miles", "");
+  }
+  if (/highest_bid/i.test(message) && columns.includes("highest_bid")) {
+    return columns.replace(", highest_bid", "");
+  }
+  return null;
+}
+
+function withoutOptionalJobColumns<T extends { highest_bid?: unknown; listed_miles?: unknown }>(
+  row: T,
+  message: string,
+) {
+  let next: Record<string, unknown> = { ...row };
+  if (/highest_bid/i.test(message)) {
+    const { highest_bid: _dropped, ...rest } = next;
+    next = rest;
+  }
+  if (/listed_miles/i.test(message)) {
+    const { listed_miles: _dropped, ...rest } = next;
+    next = rest;
+  }
+  return next as T;
 }
 
 export async function fetchMarketplaceJobs(
@@ -122,21 +149,20 @@ export async function fetchMarketplaceJobs(
   source = "Shiply",
 ): Promise<RawJob[]> {
   const supabase = createBrowserSupabase();
-  const first = await supabase
-    .from("marketplace_jobs")
-    .select(JOB_SELECT)
-    .eq("user_id", userId)
-    .eq("source", source);
-  const result =
-    first.error && /highest_bid/i.test(first.error.message)
-      ? await supabase
-          .from("marketplace_jobs")
-          .select(JOB_SELECT.replace(", highest_bid", ""))
-          .eq("user_id", userId)
-          .eq("source", source)
-      : first;
-  if (result.error) throw result.error;
-  return ((result.data as JobRow[] | null) ?? []).map(rowToJob);
+  let columns = JOB_SELECT;
+  for (;;) {
+    const result = await supabase
+      .from("marketplace_jobs")
+      .select(columns)
+      .eq("user_id", userId)
+      .eq("source", source);
+    if (!result.error) {
+      return ((result.data as unknown as JobRow[] | null) ?? []).map(rowToJob);
+    }
+    const next = dropOptionalJobColumn(columns, result.error.message);
+    if (!next) throw result.error;
+    columns = next;
+  }
 }
 
 export async function replaceMarketplaceJobs(
@@ -153,14 +179,24 @@ export async function replaceMarketplaceJobs(
   if (delError) throw delError;
   if (jobs.length > 0) {
     const rows = jobs.map((job) => jobToRow(userId, job));
-    const { error } = await supabase.from("marketplace_jobs").insert(rows);
-    if (error && /highest_bid/i.test(error.message)) {
-      const { error: retry } = await supabase
-        .from("marketplace_jobs")
-        .insert(rows.map(withoutHighestBid));
-      if (retry) throw retry;
-    } else if (error) {
-      throw error;
+    const first = await supabase.from("marketplace_jobs").insert(rows);
+    if (first.error && /highest_bid|listed_miles/i.test(first.error.message)) {
+      const stripped = rows.map((row) =>
+        withoutOptionalJobColumns(row, first.error!.message),
+      );
+      const retry = await supabase.from("marketplace_jobs").insert(stripped);
+      if (retry.error && /highest_bid|listed_miles/i.test(retry.error.message)) {
+        const again = await supabase
+          .from("marketplace_jobs")
+          .insert(
+            stripped.map((row) => withoutOptionalJobColumns(row, retry.error!.message)),
+          );
+        if (again.error) throw again.error;
+      } else if (retry.error) {
+        throw retry.error;
+      }
+    } else if (first.error) {
+      throw first.error;
     }
   }
   const { error: connError } = await supabase.from("marketplace_connections").upsert({

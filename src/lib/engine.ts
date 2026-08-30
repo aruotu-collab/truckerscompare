@@ -488,6 +488,7 @@ function summarise(
     startingCity: profile.startingCity,
     searchLocation: profile.searchLocation?.trim() || profile.startingCity,
     homeCity: profile.homeCity,
+    homeLocation: profile.homeLocation?.trim() || profile.homeCity,
     quality,
     qualityLabel:
       quality >= 76

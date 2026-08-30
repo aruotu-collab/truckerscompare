@@ -9,6 +9,9 @@ export type ShiplyListingParse = {
   description: string;
   weightKg: number | null;
   snippet: string;
+  pickup: string;
+  delivery: string;
+  listedMiles: number | null;
 };
 
 const SKIP_NAMES = new Set([
@@ -188,6 +191,40 @@ export function listingParseIsComplete(parsed: ShiplyListingParse): boolean {
   return parsed.lowestBid > 0 && (parsed.quoteCount >= 2 || /lowest quote/i.test(parsed.snippet));
 }
 
+function listedMilesFromText(text: string): number | null {
+  const labelled = text.match(
+    /(?:distance|mileage|route)[^0-9]{0,32}(\d{1,3}(?:\.\d)?)\s*(?:mi|miles)\b/i,
+  );
+  const badge = labelled ?? text.match(/\b(\d{1,3}(?:\.\d)?)\s*mi\b/i);
+  if (!badge) return null;
+  const miles = Number(badge[1]);
+  return Number.isFinite(miles) && miles > 0 && miles < 800 ? miles : null;
+}
+
+function placesFromText(text: string): { pickup: string; delivery: string } {
+  const found: string[] = [];
+  const re =
+    /(?:([A-Z][a-zA-Z]+),\s*)?((?:Greater|County)\s+[A-Z][a-zA-Z]+),\s*([A-Z]{1,2}\d{1,2}[A-Z]?)\b/g;
+  for (const match of text.matchAll(re)) {
+    const region = match[2]!;
+    const outcode = match[3]!;
+    const town =
+      match[1] && !/removal|house|flat|bed|item/i.test(match[1])
+        ? match[1]
+        : /greater london/i.test(region)
+          ? "London"
+          : /greater manchester/i.test(region)
+            ? "Manchester"
+            : region;
+    const place = `${town}, ${region}, ${outcode}`;
+    if (!found.includes(place)) found.push(place);
+  }
+  return {
+    pickup: found[0] ?? "",
+    delivery: found[1] ?? "",
+  };
+}
+
 export function parseShiplyListing(
   html: string,
   fallbackTitle = "",
@@ -207,6 +244,7 @@ export function parseShiplyListing(
   const title = titleFrom(html, fallbackTitle);
   const windows = dateWindows(text);
   const notes = cargoNotes(html, title);
+  const places = placesFromText(text);
   return {
     lowestBid,
     highestBid,
@@ -218,5 +256,8 @@ export function parseShiplyListing(
     description: cargoDescription(title, notes),
     weightKg: weightFromText(text),
     snippet: (quotesSection(text) ?? liveSection).slice(0, 220).trim(),
+    pickup: places.pickup,
+    delivery: places.delivery,
+    listedMiles: listedMilesFromText(text),
   };
 }

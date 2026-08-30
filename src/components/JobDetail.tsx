@@ -258,7 +258,8 @@ export function JobDetail() {
         </ol>
         <p className="mt-4 text-xs text-muted">
           Working drive {minutesLabel(job.pickupMinutes + job.loadedMinutes)}.
-          Finish is {minutesLabel(job.deliveryToHomeMinutes)} from {profile.homeCity}.
+          Finish is {minutesLabel(job.deliveryToHomeMinutes)} from{" "}
+          {profile.homeLocation.trim() || profile.homeCity}.
           Direct home from here would be {minutesLabel(job.startToHomeMinutes)}.
         </p>
       </section>
@@ -386,7 +387,8 @@ export function JobDetail() {
             </li>
             <li>
               <span className="text-muted">Towards home. </span>
-              Finishes {milesLabel(job.deliveryToHomeMiles)} from {profile.homeCity}
+              Finishes {milesLabel(job.deliveryToHomeMiles)} from{" "}
+              {profile.homeLocation.trim() || profile.homeCity}
               {job.towardsHomeMiles > 0
                 ? `, closing ${milesLabel(job.towardsHomeMiles)} of the remaining journey.`
                 : "."}

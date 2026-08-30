@@ -50,6 +50,7 @@ export interface City {
 export interface OperatorProfile {
   displayName: string;
   homeCity: string;
+  homeLocation: string;
   startingCity: string;
   searchLocation: string;
   vehicleType: VehicleType;
@@ -190,6 +191,7 @@ export interface MarketSummary {
   startingCity: string;
   searchLocation: string;
   homeCity: string;
+  homeLocation: string;
   quality: number;
   qualityLabel: string;
   bands: Record<ScoreBand, number>;

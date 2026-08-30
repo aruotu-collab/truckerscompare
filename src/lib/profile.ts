@@ -3,6 +3,7 @@ import type { OperatorProfile, VehicleType } from "./types";
 export const DEFAULT_PROFILE: OperatorProfile = {
   displayName: "Owner-driver",
   homeCity: "Birmingham",
+  homeLocation: "",
   startingCity: "Manchester",
   searchLocation: "",
   vehicleType: "7.5t",

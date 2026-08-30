@@ -89,12 +89,29 @@ export function ProfileForm() {
         <div id="where-you-are" className="grid gap-4 md:col-span-2 md:grid-cols-2">
         <div className="md:col-span-2">
           <PostcodeLocationField
+            label="Where you are now — postcode"
+            hint="Enter this to find more listings around you. A postcode such as SE6 is also your starting location. A city name like London finds almost nothing."
+            locate
             value={profile.searchLocation}
             onChange={(next) =>
               setProfile({
                 ...profile,
-                searchLocation: next.searchLocation,
-                startingCity: next.startingCity ?? profile.startingCity,
+                searchLocation: next.postcode,
+                startingCity: next.city ?? profile.startingCity,
+              })
+            }
+          />
+        </div>
+        <div className="md:col-span-2">
+          <PostcodeLocationField
+            label="Home — postcode"
+            hint="Where you finish the day. We use this to cost the run home."
+            value={profile.homeLocation}
+            onChange={(next) =>
+              setProfile({
+                ...profile,
+                homeLocation: next.postcode,
+                homeCity: next.city ?? profile.homeCity,
               })
             }
           />
@@ -105,7 +122,7 @@ export function ProfileForm() {
             onChange={(v) => update("startingCity", v)}
           />
         </Field>
-        <Field label="Home city">
+        <Field label="Home — nearest city">
           <CitySelect value={profile.homeCity} onChange={(v) => update("homeCity", v)} />
         </Field>
         </div>

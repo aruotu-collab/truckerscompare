@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAppState } from "@/context/AppState";
 import { useAuth } from "@/context/Auth";
 import { displayNameFromEmail } from "@/lib/auth";
-import { pickupRadiusLabel, searchPlaceLabel } from "@/lib/format";
+import { homePlaceLabel, pickupRadiusLabel, searchPlaceLabel } from "@/lib/format";
 import { supabaseConfigured } from "@/lib/supabase";
 import { clsx } from "./clsx";
 
@@ -80,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {market.market.analysed} jobs · {searchPlaceLabel(profile)} ·{" "}
                 {pickupRadiusLabel(profile.maxDeadMiles)}
               </div>
-              <div>Start {profile.startingCity} · Home {profile.homeCity}</div>
+              <div>Start {profile.startingCity} · Home {homePlaceLabel(profile)}</div>
             </Link>
             <div className="pt-1">
               {user ? (
@@ -107,7 +107,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="mx-2 text-line">/</span>
                 Start <span className="text-text">{profile.startingCity}</span>
                 <span className="mx-2 text-line">/</span>
-                Home <span className="text-text">{profile.homeCity}</span>
+                Home <span className="text-text">{homePlaceLabel(profile)}</span>
               </Link>
               <span className="mx-2 text-line">/</span>
               <span className="tabular">{market.market.analysed} analysed</span>

@@ -226,13 +226,6 @@ export async function extractVisibleJobs(
 
   for (const row of rows) {
     if (jobs.length >= ROW_LIMIT) break;
-    const pickupCity = placeToCity(row.pickup);
-    const deliveryCity = placeToCity(row.delivery);
-    if (!pickupCity || pickupCity === "Unknown" || !deliveryCity || deliveryCity === "Unknown") {
-      continue;
-    }
-    kept += 1;
-
     let detail: ShiplyListingParse | null = null;
     if (jobs.length < DETAIL_LIMIT) {
       try {
@@ -242,6 +235,12 @@ export async function extractVisibleJobs(
         if (err instanceof ShiplyAuthRequired) throw err;
       }
     }
+    const pickupCity = placeToCity(detail?.pickup || row.pickup);
+    const deliveryCity = placeToCity(detail?.delivery || row.delivery);
+    if (!pickupCity || pickupCity === "Unknown" || !deliveryCity || deliveryCity === "Unknown") {
+      continue;
+    }
+    kept += 1;
     const revenue = detail?.lowestBid ?? 0;
     if (revenue) withBudget += 1;
 
@@ -268,7 +267,7 @@ export async function extractVisibleJobs(
       quoteCount: detail?.quoteCount || row.quotes,
       postedMinutesAgo: parsePosted(row.date),
       description: load,
-      listedMiles: row.listedMiles,
+      listedMiles: detail?.listedMiles ?? row.listedMiles,
     };
     const job = listingToJob(item, jobs.length);
     if (typeof job !== "string") jobs.push(job);

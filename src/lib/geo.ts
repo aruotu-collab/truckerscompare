@@ -54,10 +54,8 @@ export const CITIES: City[] = [
 export function lookupCity(name: string): City | null {
   const exact = CITIES.find((c) => c.name === name);
   if (exact) return exact;
-  const resolved = resolvePlace(name);
-  if (resolved && resolved !== name) {
-    return CITIES.find((c) => c.name === resolved) ?? null;
-  }
+  const resolved = resolvePlace(name) ?? parentCityFromOutcode(name);
+  if (resolved) return CITIES.find((c) => c.name === resolved) ?? null;
   return null;
 }
 
@@ -68,6 +66,11 @@ export function cityByName(name: string): City {
     lng: -1.1743,
     region: "Unmapped",
   };
+}
+
+/** City used for the road matrix — E17 still costs as London. */
+export function costingCity(name: string): string {
+  return lookupCity(name)?.name ?? name;
 }
 
 const PLACE_ALIASES: Record<string, string> = {
@@ -102,6 +105,10 @@ const PLACE_ALIASES: Record<string, string> = {
   sutton: "London",
   "tower hamlets": "London",
   "waltham forest": "London",
+  walthamstow: "London",
+  catford: "London",
+  willesden: "London",
+  harlesden: "London",
   wandsworth: "London",
   westminster: "London",
   chelsea: "London",
@@ -214,17 +221,77 @@ export function resolvePlace(place: string): string | null {
     const hit = matchCity(part);
     if (hit) return hit;
   }
-  return matchCity(raw);
+  return matchCity(raw) ?? parentCityFromOutcode(raw);
 }
 
-/** Keep Shiply's town name when it is not in the city book. */
+const FULL_POSTCODE = /\b([A-Z]{1,2}\d{1,2}[A-Z]?)\s*\d[A-Z]{2}\b/i;
+const OUTCODE = /\b([A-Z]{1,2}\d{1,2}[A-Z]?)\b/i;
+
+/** SE6 2TN → SE6, or a lone outcode. */
+export function extractOutcode(place: string): string | null {
+  const full = place.toUpperCase().match(FULL_POSTCODE);
+  if (full?.[1]) return full[1];
+  const only = place.toUpperCase().replace(/\s+/g, " ").trim();
+  if (/^[A-Z]{1,2}\d{1,2}[A-Z]?$/.test(only)) return only;
+  const loose = only.match(OUTCODE);
+  return loose?.[1] ?? null;
+}
+
+const GENERIC_METRO = new Set([
+  "london",
+  "greater london",
+  "birmingham",
+  "manchester",
+  "greater manchester",
+  "glasgow",
+  "leeds",
+  "liverpool",
+  "edinburgh",
+  "bristol",
+  "cardiff",
+  "belfast",
+]);
+
+export function parentCityFromOutcode(name: string): string | null {
+  const o = (extractOutcode(name) ?? name).toUpperCase().replace(/\s+/g, "");
+  if (/^(EC|WC|SE|SW|NW)\d/.test(o)) return "London";
+  if (/^[ENW]\d/.test(o)) return "London";
+  if (/^M\d/.test(o)) return "Manchester";
+  if (/^B\d/.test(o)) return "Birmingham";
+  if (/^L\d/.test(o)) return "Liverpool";
+  if (/^G\d/.test(o)) return "Glasgow";
+  if (/^LS\d/.test(o)) return "Leeds";
+  if (/^EH\d/.test(o)) return "Edinburgh";
+  if (/^BS\d/.test(o)) return "Bristol";
+  if (/^CF\d/.test(o)) return "Cardiff";
+  if (/^BT\d/.test(o)) return "Belfast";
+  return null;
+}
+
+/** Shiply's town plus district — "London E17", not a bare city or outcode. */
 export function placeLabel(place: string): string {
-  const resolved = resolvePlace(place);
-  if (resolved) return resolved;
-  const first = place.split(",")[0]?.replace(/\s+/g, " ").trim() ?? "";
-  if (first && !/^[a-z]{1,2}\d/i.test(first)) return first.slice(0, 48);
   const raw = place.replace(/\s+/g, " ").trim();
-  return raw.slice(0, 48) || "Unknown";
+  if (!raw) return "Unknown";
+  const first = raw.split(",")[0]?.trim() ?? "";
+  const firstNorm = normPlace(first);
+  const outcode = extractOutcode(raw);
+  let town = "";
+  if (first && !/^[a-z]{1,2}\d/i.test(first)) {
+    town =
+      firstNorm === "greater london"
+        ? "London"
+        : firstNorm === "greater manchester"
+          ? "Manchester"
+          : first;
+  } else if (outcode) {
+    town = parentCityFromOutcode(outcode) ?? "";
+  }
+  if (town && outcode && !town.toUpperCase().includes(outcode)) {
+    return `${town} ${outcode}`.slice(0, 48);
+  }
+  if (town) return town.slice(0, 48);
+  if (outcode) return outcode;
+  return (resolvePlace(raw) ?? raw).slice(0, 48) || "Unknown";
 }
 
 export function nearestCity(lat: number, lng: number): City {
@@ -265,8 +332,13 @@ export function hasRoadMatrix(from: string, to: string): boolean {
 export function roadMiles(from: string, to: string): number {
   const hit = ROAD.miles[pairKey(from, to)];
   if (typeof hit === "number") return hit;
+  const fromCity = costingCity(from);
+  const toCity = costingCity(to);
+  const cityHit = ROAD.miles[pairKey(fromCity, toCity)];
+  if (typeof cityHit === "number") return cityHit;
   if (from === to) return 4;
-  return Math.round(haversineMiles(cityByName(from), cityByName(to)) * 1.28 * 10) / 10;
+  if (fromCity === toCity) return 4;
+  return Math.round(haversineMiles(cityByName(fromCity), cityByName(toCity)) * 1.28 * 10) / 10;
 }
 
 /** Driving minutes from the UK road matrix, with a speed-band fallback. */
