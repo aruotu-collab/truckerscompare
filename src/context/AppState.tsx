@@ -10,7 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "@/context/Auth";
-import { analyseMarket } from "@/lib/engine";
+import { analyseMarket, getRawJobs } from "@/lib/engine";
+import { hydratePlaceGeos, placesForBook } from "@/lib/postcode-points";
 import { DEFAULT_PROFILE, loadProfile, saveProfile } from "@/lib/profile";
 import {
   fetchConnection,
@@ -76,6 +77,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [geoTick, setGeoTick] = useState(0);
   const [book, setBookState] = useState<BookSource>("demo");
   const [liveJobs, setLiveJobs] = useState<RawJob[]>([]);
   const [connection, setConnection] = useState<MarketplaceConnection | null>(null);
@@ -293,12 +295,34 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  useEffect(() => {
+    if (!hydrated) return;
+    const jobs = liveJobs.length > 0 ? liveJobs : getRawJobs();
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void hydratePlaceGeos(placesForBook(profile, jobs)).then((changed) => {
+        if (!cancelled && changed) setGeoTick((n) => n + 1);
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    hydrated,
+    liveJobs,
+    profile.searchLocation,
+    profile.homeLocation,
+    profile.startingCity,
+    profile.homeCity,
+  ]);
+
   const market = useMemo(
     () =>
       analyseMarket(profile, liveJobs.length > 0 ? liveJobs : undefined, {
         applyPickupRadius: liveJobs.length === 0,
       }),
-    [profile, liveJobs],
+    [profile, liveJobs, geoTick],
   );
 
   const value = useMemo(

@@ -5,6 +5,7 @@ import {
   roadMinutes,
   routePairSource,
 } from "./geo";
+import { displayPlace, placeGeo } from "./postcode-points";
 import { vehicleCompatible } from "./profile";
 import type {
   CostBreakdown,
@@ -39,8 +40,8 @@ function driveLeg(
 ): RouteLeg {
   return {
     kind,
-    from,
-    to,
+    from: displayPlace(from),
+    to: displayPlace(to),
     miles: roadMiles(from, to),
     minutes: roadMinutes(from, to),
     source: routePairSource(from, to),
@@ -72,8 +73,7 @@ export function costJob(
     fuelPricePerLitre: scenario.fuelPricePerLitre ?? profile.fuelPricePerLitre,
   };
   const quote = scenario.quote && scenario.quote > 0 ? scenario.quote : job.revenue;
-  const pickupKnown = Boolean(lookupCity(job.pickupCity));
-  const deliveryKnown = Boolean(lookupCity(job.deliveryCity));
+  const pickupKnown = Boolean(lookupCity(job.pickupCity) || placeGeo(job.pickupCity));
   let deadhead = driveLeg("deadhead", startPlace, job.pickupCity);
   let loaded = driveLeg("loaded", job.pickupCity, job.deliveryCity);
   const home = driveLeg("home", job.deliveryCity, homePlace);

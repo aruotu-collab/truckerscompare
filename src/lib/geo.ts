@@ -1,4 +1,5 @@
 import type { City } from "./types";
+import { placeGeo, postcodeRoad } from "./postcode-points";
 import matrix from "./route-matrix.json";
 
 type RoadMatrix = {
@@ -252,6 +253,20 @@ const GENERIC_METRO = new Set([
   "belfast",
 ]);
 
+export function isGenericMetro(name: string): boolean {
+  return GENERIC_METRO.has(normPlace(name));
+}
+
+/** Town Shiply put first — "Oxted" from "Oxted RH8", not an outcode. */
+export function shiplyTown(place: string): string {
+  const first = place.replace(/\s+/g, " ").trim().split(",")[0]?.trim() ?? "";
+  if (!first || /^[a-z]{1,2}\d/i.test(first)) return "";
+  const n = normPlace(first);
+  if (n === "greater london") return "London";
+  if (n === "greater manchester") return "Manchester";
+  return first;
+}
+
 export function parentCityFromOutcode(name: string): string | null {
   const o = (extractOutcode(name) ?? name).toUpperCase().replace(/\s+/g, "");
   if (/^(EC|WC|SE|SW|NW)\d/.test(o)) return "London";
@@ -328,21 +343,39 @@ export function hasRoadMatrix(from: string, to: string): boolean {
   return Object.prototype.hasOwnProperty.call(ROAD.miles, pairKey(from, to));
 }
 
-/** Driving miles from the UK road matrix, with a haversine fallback. */
+function pointOf(place: string): City | null {
+  const geo = placeGeo(place);
+  if (geo) return { name: geo.label, lat: geo.lat, lng: geo.lng, region: "" };
+  return lookupCity(place);
+}
+
+/** Driving miles from postcodes / the UK road matrix, with a haversine fallback. */
 export function roadMiles(from: string, to: string): number {
+  if (from === to) return 4;
+  const posted = postcodeRoad(from, to);
+  if (posted) return posted.miles;
+  const fromOut = extractOutcode(from);
+  const toOut = extractOutcode(to);
+  const fromPoint = pointOf(from);
+  const toPoint = pointOf(to);
+  if (fromPoint && toPoint && (fromOut || toOut) && fromOut !== toOut) {
+    const miles = haversineMiles(fromPoint, toPoint) * 1.28;
+    return miles < 1.5 ? 4 : Math.round(miles * 10) / 10;
+  }
   const hit = ROAD.miles[pairKey(from, to)];
   if (typeof hit === "number") return hit;
   const fromCity = costingCity(from);
   const toCity = costingCity(to);
   const cityHit = ROAD.miles[pairKey(fromCity, toCity)];
   if (typeof cityHit === "number") return cityHit;
-  if (from === to) return 4;
   if (fromCity === toCity) return 4;
   return Math.round(haversineMiles(cityByName(fromCity), cityByName(toCity)) * 1.28 * 10) / 10;
 }
 
-/** Driving minutes from the UK road matrix, with a speed-band fallback. */
+/** Driving minutes from postcodes / the UK road matrix, with a speed-band fallback. */
 export function roadMinutes(from: string, to: string): number {
+  const posted = postcodeRoad(from, to);
+  if (posted) return posted.minutes;
   const hit = ROAD.minutes[pairKey(from, to)];
   if (typeof hit === "number") return hit;
   const miles = roadMiles(from, to);
@@ -351,13 +384,15 @@ export function roadMinutes(from: string, to: string): number {
 }
 
 export function routePairSource(from: string, to: string): "osrm" | "estimate" {
+  const posted = postcodeRoad(from, to);
+  if (posted?.source === "osrm") return "osrm";
   return hasRoadMatrix(from, to) ? "osrm" : "estimate";
 }
 
 export function headingDegrees(from: string, to: string): number {
   if (from === to) return 0;
-  const a = cityByName(from);
-  const b = cityByName(to);
+  const a = pointOf(from) ?? cityByName(from);
+  const b = pointOf(to) ?? cityByName(to);
   const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
   const x =
     Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) -
