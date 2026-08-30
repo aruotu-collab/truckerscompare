@@ -2,7 +2,30 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { projectUrl, publicKey } from "@/lib/supabase";
 
+function authCallbackUrl(request: NextRequest): URL | null {
+  const incoming = request.nextUrl;
+  if (incoming.pathname === "/auth/callback") return null;
+  const code = incoming.searchParams.get("code");
+  const tokenHash = incoming.searchParams.get("token_hash");
+  if (!code && !tokenHash) return null;
+
+  const dest = incoming.clone();
+  dest.pathname = "/auth/callback";
+  if (!dest.searchParams.get("next")) {
+    const current = incoming.pathname;
+    if (current !== "/" && !current.startsWith("/auth") && current !== "/sign-in") {
+      dest.searchParams.set("next", current);
+    }
+  }
+  return dest;
+}
+
 export async function proxy(request: NextRequest) {
+  const callback = authCallbackUrl(request);
+  if (callback) {
+    return NextResponse.redirect(callback);
+  }
+
   let response = NextResponse.next({ request });
   const url = projectUrl();
   const key = publicKey();

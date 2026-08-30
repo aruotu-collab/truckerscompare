@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/Auth";
-import { isEmail, safeNextPath } from "@/lib/auth";
+import { AUTH_NEXT_COOKIE, isEmail, safeNextPath } from "@/lib/auth";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
 
 const COOLDOWN_SECONDS = 45;
@@ -42,11 +42,14 @@ export function SignInForm() {
     setError("");
     try {
       const supabase = createBrowserSupabase();
+      // Keep next out of the redirect URL — Supabase rejects query strings
+      // that are not on the allowlist and falls back to the Site URL.
+      document.cookie = `${AUTH_NEXT_COOKIE}=${encodeURIComponent(next)}; Path=/; Max-Age=3600; SameSite=Lax`;
       const { error: sendError } = await supabase.auth.signInWithOtp({
         email: trimmed,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (sendError) {
