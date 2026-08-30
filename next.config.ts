@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ["playwright-core"],
+  outputFileTracingIncludes: {
+    "/api/shiply/*": ["./node_modules/playwright-core/**/*"],
+  },
 };
 
 export default nextConfig;

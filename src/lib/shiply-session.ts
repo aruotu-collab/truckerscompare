@@ -1,4 +1,4 @@
-import { chromium, type Page } from "playwright-core";
+import type { Browser, Page } from "playwright-core";
 import { CITIES } from "./geo";
 import { listingToJob, type ImportedListing } from "./shiply";
 import {
@@ -36,9 +36,10 @@ type SearchRow = {
 };
 
 export async function openShiplyPage(connectUrl: string): Promise<{
-  browser: Awaited<ReturnType<typeof chromium.connectOverCDP>>;
+  browser: Browser;
   page: Page;
 }> {
+  const { chromium } = await import("playwright-core");
   const browser = await chromium.connectOverCDP(connectUrl);
   const context = browser.contexts()[0] ?? (await browser.newContext());
   const page = context.pages()[0] ?? (await context.newPage());
