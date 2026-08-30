@@ -1,0 +1,330 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import { useAppState } from "@/context/AppState";
+import { profitAtQuote, recommendedQuote } from "@/lib/costs";
+import { jobById } from "@/lib/engine";
+import {
+  decisionBoundary,
+  intelligenceSummary,
+  whyStrengths,
+  whyWeaknesses,
+} from "@/lib/explanations";
+import {
+  betterThan,
+  confidenceLabel,
+  gbp,
+  hoursLabel,
+  milesLabel,
+  postedLabel,
+  routeLabel,
+} from "@/lib/format";
+import { BandPill, JobFlags, Metric, Money, ScoreRing, WinnerChip } from "./ui";
+import { clsx } from "./clsx";
+
+export function JobDetail() {
+  const { id } = useParams<{ id: string }>();
+  const { market, profile, selectedIds, toggleSelected, toggleSaved, savedIds, dismiss } =
+    useAppState();
+  const job = jobById(market.jobs, id);
+  const [quote, setQuote] = useState(job?.revenue ?? 0);
+
+  if (!job) {
+    return (
+      <div>
+        <p className="text-muted">That opportunity is not in the current book.</p>
+        <Link href="/opportunities" className="mt-3 inline-block text-gold">
+          Back to opportunities
+        </Link>
+      </div>
+    );
+  }
+
+  const sim = profitAtQuote(job, quote, profile.marketplaceFeePercent);
+  const rival = market.jobs.find((j) => j.id !== job.id && j.score >= job.score - 8);
+  const floors = [job.costs.total, job.costs.total + 50, job.costs.total + 100, job.costs.total + 150, job.costs.total + 200];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link href="/opportunities" className="text-xs text-muted hover:text-text">
+            ← Opportunities
+          </Link>
+          <h1 className="mt-2 text-2xl font-medium">
+            {routeLabel(job.pickupCity, job.deliveryCity)}
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            {job.source} · {job.category} · Posted {postedLabel(job.postedMinutesAgo)} ·{" "}
+            {job.quoteCount} quotes
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {job.winnerLabels.map((w) => (
+              <WinnerChip key={w} kind={w} />
+            ))}
+            <BandPill band={job.band} />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-[11px] uppercase tracking-wider text-muted">Your score</div>
+            <ScoreRing score={job.score} band={job.band} size="lg" />
+          </div>
+          <div className="text-right text-sm">
+            <div className="text-muted">Market score</div>
+            <div className="tabular text-lg">{job.marketScore}</div>
+            <div className="mt-2 text-muted">Confidence</div>
+            <div>{confidenceLabel(job.confidence)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => toggleSelected(job.id)}
+          className={clsx(
+            "rounded-md px-3 py-1.5 text-sm",
+            selectedIds.includes(job.id) ? "bg-gold text-ink" : "border border-line",
+          )}
+        >
+          {selectedIds.includes(job.id) ? "Selected for compare" : "Add to compare"}
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleSaved(job.id)}
+          className="rounded-md border border-line px-3 py-1.5 text-sm"
+        >
+          {savedIds.includes(job.id) ? "Saved" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => dismiss(job.id)}
+          className="rounded-md border border-line px-3 py-1.5 text-sm text-muted"
+        >
+          Dismiss
+        </button>
+        {selectedIds.length > 0 ? (
+          <Link
+            href={`/compare?ids=${[...new Set([job.id, ...selectedIds])].slice(0, 4).join(",")}`}
+            className="rounded-md border border-gold/40 px-3 py-1.5 text-sm text-gold"
+          >
+            Open compare
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <Metric label="Revenue" hint="Marketplace customer budget">
+          <Money value={job.revenue} />
+        </Metric>
+        <Metric
+          label="Estimated profit"
+          hint={`${job.profit >= market.market.medianProfit ? "+" : "−"}${gbp(Math.abs(job.profit - market.market.medianProfit))} vs today's median`}
+        >
+          <Money value={job.profit} className="text-gold" />
+        </Metric>
+        <Metric label="Profit / hour" hint={betterThan(job.percentiles.profitPerHour)}>
+          {gbp(job.profitPerHour)}
+        </Metric>
+        <Metric label="Dead miles" hint={betterThan(job.percentiles.deadMiles)}>
+          {milesLabel(job.deadMiles)}
+        </Metric>
+      </div>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-line bg-panel p-4">
+          <h2 className="text-sm font-medium">Real cost of this job</h2>
+          <p className="mt-1 text-xs text-muted">
+            Marketplace number is revenue. These are the hidden costs.
+          </p>
+          <dl className="mt-4 space-y-2 text-sm">
+            <Row label="Revenue" value={gbp(job.revenue)} />
+            <Row label="Fuel" value={`− ${gbp(job.costs.fuel)}`} muted />
+            <Row label="Vehicle running" value={`− ${gbp(job.costs.vehicle)}`} muted />
+            <Row label="of which dead-mile cost" value={gbp(job.costs.deadMile)} muted />
+            <Row label="Driver time" value={`− ${gbp(job.costs.driverTime)}`} muted />
+            <Row label="Marketplace fees" value={`− ${gbp(job.costs.fees)}`} muted />
+            <Row label="Tolls (est.)" value={`− ${gbp(job.costs.tolls)}`} muted />
+            <Row label="Estimated real profit" value={gbp(job.profit)} gold />
+            <Row label="Margin" value={`${Math.round(job.margin * 100)}%`} />
+            <Row label="£ / mile" value={gbp(job.profitPerMile, 2)} />
+            <Row label="Working time" value={hoursLabel(job.totalHours)} />
+          </dl>
+        </div>
+
+        <div className="rounded-lg border border-line bg-panel p-4">
+          <h2 className="text-sm font-medium">Why {job.score}?</h2>
+          <div className="mt-4 space-y-2">
+            {job.factors.map((factor) => (
+              <div key={factor.key}>
+                <div className="flex justify-between text-xs">
+                  <span>{factor.label}</span>
+                  <span className="tabular text-muted">
+                    {factor.score} / {factor.max}
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink">
+                  <div
+                    className="h-full bg-gold"
+                    style={{ width: `${(factor.score / factor.max) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-muted">
+            Market score {job.marketScore} is quality versus today&apos;s book.
+            Your score {job.personalScore} is fit for this vehicle, start point
+            and targets.
+          </p>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-line bg-panel p-4">
+          <h2 className="text-sm font-medium">Why this ranks here</h2>
+          <p className="mt-3 text-sm leading-6">{intelligenceSummary(job)}</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-good">Strengths</div>
+              <ul className="mt-2 space-y-1 text-sm">
+                {whyStrengths(job).map((s) => (
+                  <li key={s}>+ {s}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-bad">Watch</div>
+              <ul className="mt-2 space-y-1 text-sm">
+                {whyWeaknesses(job).map((s) => (
+                  <li key={s}>− {s}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="mt-4">
+            <JobFlags job={job} />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-line bg-panel p-4">
+          <h2 className="text-sm font-medium">Four benchmarks</h2>
+          <ul className="mt-3 space-y-3 text-sm">
+            <li>
+              <span className="text-muted">Today&apos;s book. </span>
+              {job.profit >= market.market.medianProfit ? "Produces" : "Produces"}{" "}
+              {gbp(Math.abs(job.profit - market.market.medianProfit))}{" "}
+              {job.profit >= market.market.medianProfit ? "more" : "less"} than today&apos;s
+              median profit of {gbp(market.market.medianProfit)}.
+            </li>
+            <li>
+              <span className="text-muted">Similar work. </span>
+              Among jobs of this distance band, profit/hour is{" "}
+              {betterThan(job.percentiles.profitPerHour).toLowerCase()}.
+            </li>
+            <li>
+              <span className="text-muted">Your targets. </span>
+              {gbp(job.profitPerHour)}/hour is{" "}
+              {job.vsTargetHour >= 0
+                ? `${gbp(job.vsTargetHour)} above`
+                : `${gbp(Math.abs(job.vsTargetHour))} below`}{" "}
+              your {gbp(profile.targetProfitPerHour)}/hour target. Profit is{" "}
+              {job.vsMinProfit >= 0
+                ? `${gbp(job.vsMinProfit)} above`
+                : `${gbp(Math.abs(job.vsMinProfit))} below`}{" "}
+              your {gbp(profile.minProfit)} minimum.
+            </li>
+            <li>
+              <span className="text-muted">Towards home. </span>
+              Finishes {milesLabel(job.deliveryToHomeMiles)} from {profile.homeCity}
+              {job.towardsHomeMiles > 0
+                ? `, closing ${milesLabel(job.towardsHomeMiles)} of the remaining journey.`
+                : "."}
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-line bg-panel p-4">
+          <h2 className="text-sm font-medium">Onward work at {job.deliveryCity}</h2>
+          <p className="mt-2 text-sm capitalize text-gold">{job.onward.rating} potential</p>
+          <dl className="mt-3 space-y-2 text-sm">
+            <Row label="Jobs within 25 miles" value={String(job.onward.jobsWithin25)} />
+            <Row label="Strong or better" value={String(job.onward.strongOrBetter)} />
+            <Row label="Exceptional" value={String(job.onward.exceptional)} />
+            <Row label="Average pickup" value={milesLabel(job.onward.averagePickupMiles)} />
+            <Row label="Best onward profit" value={gbp(job.onward.bestOnwardProfit)} />
+          </dl>
+        </div>
+
+        <div className="rounded-lg border border-line bg-panel p-4">
+          <h2 className="text-sm font-medium">What-if quote</h2>
+          <p className="mt-1 text-xs text-muted">
+            Change the quote. Rank is approximate against the current book.
+          </p>
+          <input
+            type="range"
+            min={Math.round(job.costs.total)}
+            max={Math.round(job.revenue * 1.35)}
+            value={quote}
+            onChange={(e) => setQuote(Number(e.target.value))}
+            className="mt-4 w-full"
+          />
+          <div className="mt-2 text-sm tabular">Quote {gbp(quote)}</div>
+          <dl className="mt-3 space-y-2 text-sm">
+            <Row label="Profit" value={gbp(sim.profit)} gold />
+            <Row label="£/hour" value={gbp(sim.profitPerHour)} />
+            <Row label="Margin" value={`${Math.round(sim.margin * 100)}%`} />
+          </dl>
+          <p className="mt-3 text-xs text-muted">
+            Break-even {gbp(job.costs.total)}. Suggested quote {gbp(recommendedQuote(job, profile))}{" "}
+            to clear your £/hour and minimum profit.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted">
+            {floors.map((n) => (
+              <span key={n} className="rounded-sm border border-line px-1.5 py-0.5 tabular">
+                @ {gbp(n)} → {gbp(n - job.costs.total + job.costs.fees)}*
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-line bg-panel p-4">
+        <h2 className="text-sm font-medium">This recommendation changes if…</h2>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">
+          {decisionBoundary(job, rival).map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-muted">
+          Collection {job.collectionWindow}. Delivery {job.deliveryWindow}.{" "}
+          {job.description}
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  muted,
+  gold,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+  gold?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="text-muted">{label}</dt>
+      <dd className={clsx("tabular", gold && "text-gold", muted && "text-muted")}>{value}</dd>
+    </div>
+  );
+}
