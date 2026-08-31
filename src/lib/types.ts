@@ -9,6 +9,8 @@ export type VehicleType =
 export type JobSource =
   | "Shiply"
   | "uShip"
+  | "AnyVan"
+  | "Clicktrans"
   | "Courier Exchange"
   | "Returnloads"
   | "Man and Van";

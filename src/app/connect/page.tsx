@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { ConnectShiply } from "@/components/ConnectShiply";
+import { ConnectSources } from "@/components/ConnectSources";
 
 export const metadata: Metadata = {
-  title: "Shiply — TruckersCompare",
+  title: "Connect — TruckersCompare",
   robots: { index: false, follow: false },
 };
 
 export default function ConnectPage() {
-  return <ConnectShiply />;
+  return <ConnectSources />;
 }

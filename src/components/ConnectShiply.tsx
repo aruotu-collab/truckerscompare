@@ -8,7 +8,7 @@ import { searchPlaceLabel } from "@/lib/format";
 import { driverFacingError, readApiJson } from "@/lib/user-error";
 import { WhereYouAre } from "./WhereYouAre";
 
-export function ConnectShiply() {
+export function ConnectShiply({ embedded = false }: { embedded?: boolean }) {
   const { user, ready } = useAuth();
   const {
     liveJobs,
@@ -39,6 +39,7 @@ export function ConnectShiply() {
   }
 
   if (!user) {
+    if (embedded) return null;
     return (
       <div className="space-y-6">
         <Intro />
@@ -126,10 +127,15 @@ export function ConnectShiply() {
       .finally(() => setBusy(false));
   }
 
+  const locStep = embedded ? 0 : 1;
+  const refreshStep = locStep + 1;
+  const signInStep = connected ? refreshStep + 1 : refreshStep;
+
   return (
     <div className="space-y-6">
-      <Intro />
+      {embedded ? null : <Intro />}
 
+      {embedded ? null : (
       <Step n={1} title="Set where you are now">
         <p className="text-sm text-muted">
           Enter a postcode first. That is your start point — it finds more jobs
@@ -140,9 +146,10 @@ export function ConnectShiply() {
           <WhereYouAre compact />
         </div>
       </Step>
+      )}
 
       {connected && !liveViewUrl ? (
-        <Step n={2} title="Refresh the jobs you can already see" done>
+        <Step n={refreshStep} title="Refresh the jobs you can already see" done>
           <p className="text-sm text-muted">
             Refresh runs Shiply Local search for collections within{" "}
             {profile.maxDeadMiles > 0
@@ -181,7 +188,7 @@ export function ConnectShiply() {
 
       {showSignInSteps ? (
         <Step
-          n={connected ? 3 : 2}
+          n={signInStep}
           title={needsReconnect ? "Shiply needs you to sign in again" : "Sign in on Shiply"}
         >
           <ol className="list-decimal space-y-3 pl-5 text-base md:text-sm">

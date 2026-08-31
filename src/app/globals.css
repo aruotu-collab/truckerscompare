@@ -45,7 +45,52 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-@media (max-width: 767px) {
+/* Desktop chrome needs width and height. Landscape phones stay mobile. */
+.shell-sidebar,
+.shell-desk-only,
+.shell-location-inline {
+  display: none;
+}
+
+@media (min-width: 768px) and (min-height: 540px) {
+  .shell-sidebar {
+    display: flex;
+  }
+
+  .shell-mobile {
+    display: none !important;
+  }
+
+  .shell-desk-only {
+    display: block;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 539px) {
+  .shell-header {
+    padding-top: max(0.4rem, env(safe-area-inset-top));
+    padding-bottom: 0.4rem;
+  }
+
+  .shell-location-below {
+    display: none !important;
+  }
+
+  .shell-location-inline {
+    display: block;
+  }
+}
+
+.shell-nav {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.shell-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 767px), ((max-width: 1023px) and (max-height: 539px)) {
   html {
     font-size: 17px;
     -webkit-text-size-adjust: 100%;

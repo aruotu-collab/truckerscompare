@@ -19,7 +19,7 @@ import {
   pickupRadiusLabel,
   routeLabel,
 } from "@/lib/format";
-import { JOB_SOURCES } from "@/lib/marketplaces";
+import { sourceLabel } from "@/lib/marketplaces";
 import type { AnalysedJob, JobSource } from "@/lib/types";
 import { clsx } from "./clsx";
 import { TripDiagram } from "./TripDiagram";
@@ -48,6 +48,10 @@ export function Opportunities() {
   const [savedOnly, setSavedOnly] = useState(false);
   const [source, setSource] = useState<JobSource | "all">("all");
   const [sort, setSort] = useState<SortKey>("score");
+  const sourcesInBook = useMemo(
+    () => Array.from(new Set(market.jobs.map((job) => job.source))),
+    [market.jobs],
+  );
 
   const rows = useMemo(() => {
     let list = market.jobs.filter((job) => {
@@ -159,9 +163,9 @@ export function Opportunities() {
           className="min-h-11 rounded-md border border-line bg-ink px-3 py-2 text-base md:min-h-0 md:text-sm"
         >
           <option value="all">All sources</option>
-          {JOB_SOURCES.map((name) => (
+          {sourcesInBook.map((name) => (
             <option key={name} value={name}>
-              {name}
+              {sourceLabel(name)}
             </option>
           ))}
         </select>

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppState } from "@/context/AppState";
@@ -17,16 +17,27 @@ const NAV = [
   { href: "/connect", label: "Shiply" },
 ];
 
+function isActive(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { market, selectedIds, profile, book, liveJobs, bookStale } = useAppState();
   const { user } = useAuth();
   const welcomeName = displayNameFromEmail(user?.email);
+  const mobileNavRef = useRef<HTMLElement>(null);
+  const locationLine = `${searchPlaceLabel(profile)} · ${pickupRadiusLabel(profile.maxDeadMiles)} · Home ${homePlaceLabel(profile)}`;
+
+  useEffect(() => {
+    const active = mobileNavRef.current?.querySelector("[data-active='true']");
+    active?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [pathname]);
 
   return (
-    <div className="min-h-full overflow-x-hidden bg-ink text-text">
-      <div className="flex min-h-dvh overflow-x-hidden">
-        <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-line bg-panel px-4 py-5 md:flex">
+    <div className="h-dvh overflow-hidden bg-ink text-text">
+      <div className="flex h-full overflow-hidden">
+        <aside className="shell-sidebar h-full w-56 shrink-0 flex-col overflow-y-auto border-r border-line bg-panel px-4 py-5">
           <Link href="/" className="mb-8 block">
             <div className="text-[11px] uppercase tracking-[0.28em] text-gold">Truckers</div>
             <div className="font-medium tracking-tight">Compare</div>
@@ -34,10 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <nav className="flex flex-1 flex-col gap-1">
             {NAV.map((item) => {
-              const active =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
+              const active = isActive(pathname, item.href);
               return (
                 <Link
                   key={item.href}
@@ -98,13 +106,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
-          <header className="sticky top-0 z-20 border-b border-line bg-ink/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur md:px-6 md:pt-3">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="shell-header z-20 shrink-0 border-b border-line bg-ink/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur md:px-6">
             <div className="flex items-center justify-between gap-3">
-              <Link href="/" className="min-w-0 truncate text-base font-medium text-gold md:hidden">
+              <Link href="/" className="shell-mobile min-w-0 truncate text-base font-medium text-gold">
                 TruckersCompare
               </Link>
-              <div className="hidden text-sm md:block">
+              <div className="shell-desk-only text-sm">
                 <Link href="/connect#where-you-are" className="text-muted hover:text-text">
                   Searching{" "}
                   <span className="text-text">{searchPlaceLabel(profile)}</span>
@@ -115,6 +123,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span className="ml-2 text-gold">Change</span>
                 </Link>
               </div>
+              <Link
+                href="/connect#where-you-are"
+                className="shell-location-inline min-w-0 truncate text-sm text-muted"
+              >
+                {locationLine} <span className="text-gold">Change</span>
+              </Link>
               <div className="shrink-0">
                 {user ? (
                   <div className="flex items-center gap-2 text-sm">
@@ -134,41 +148,41 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               </div>
             </div>
+            <nav
+              ref={mobileNavRef}
+              aria-label="Main"
+              className="shell-mobile shell-nav -mx-4 mt-2 flex gap-1 overflow-x-auto overscroll-x-contain px-4"
+            >
+              {NAV.map((item) => {
+                const active = isActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    data-active={active ? "true" : undefined}
+                    className={clsx(
+                      "inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-3 text-sm font-medium",
+                      active ? "bg-panel-2 text-gold" : "text-muted",
+                    )}
+                  >
+                    {item.label}
+                    {item.href === "/compare" && selectedIds.length > 0 ? (
+                      <span className="ml-1 tabular text-gold">{selectedIds.length}</span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </nav>
             <Link
               href="/connect#where-you-are"
-              className="mt-2 block break-words text-sm leading-snug text-muted md:hidden"
+              className="shell-mobile shell-location-below mt-2 block break-words text-sm leading-snug text-muted"
             >
-              {searchPlaceLabel(profile)} · {pickupRadiusLabel(profile.maxDeadMiles)} · Home{" "}
-              {homePlaceLabel(profile)}{" "}
-              <span className="text-gold">Change</span>
+              {locationLine} <span className="text-gold">Change</span>
             </Link>
           </header>
-          <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-4 md:px-6 md:py-6">
+          <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:py-6">
             {children}
           </main>
-          <nav className="sticky bottom-0 z-20 grid grid-cols-5 border-t border-line bg-panel pb-[env(safe-area-inset-bottom)] md:hidden">
-            {NAV.map((item) => {
-              const active =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={clsx(
-                    "flex min-h-14 items-center justify-center px-1 text-center text-sm font-medium",
-                    active ? "text-gold" : "text-muted",
-                  )}
-                >
-                  {item.label}
-                  {item.href === "/compare" && selectedIds.length > 0 ? (
-                    <span className="ml-0.5 tabular text-gold">{selectedIds.length}</span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </nav>
         </div>
       </div>
     </div>
