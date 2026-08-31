@@ -22,8 +22,19 @@ import {
   type MarketplaceConnection,
 } from "@/lib/marketplace-store";
 import { fetchRemoteProfile, upsertRemoteProfile } from "@/lib/profile-store";
+import { makeOutcome } from "@/lib/outcomes";
+import { fetchOutcomes, insertOutcome } from "@/lib/outcomes-store";
+import { bookFingerprint, diffScans, snapshotFromMarket, type ScanSnapshot } from "@/lib/scan-delta";
 import { driverFacingError, readApiJson } from "@/lib/user-error";
-import type { AnalysedMarket, OperatorProfile, RawJob } from "@/lib/types";
+import type {
+  AnalysedJob,
+  AnalysedMarket,
+  JobOutcome,
+  MarketMovement,
+  OperatorProfile,
+  OutcomeKind,
+  RawJob,
+} from "@/lib/types";
 
 export type ProfileSaveState = "local" | "loading" | "saving" | "saved" | "error";
 
@@ -31,6 +42,10 @@ const SELECTED_KEY = "tc-selected-v1";
 const SAVED_KEY = "tc-saved-v1";
 const DISMISSED_KEY = "tc-dismissed-v1";
 const BOOK_KEY = "tc-book-v1";
+const SNAP_KEY = "tc-scan-v1";
+const MOVE_KEY = "tc-moves-v1";
+const OUT_KEY = "tc-outcomes-v1";
+const WORK_KEY = "tc-working-v1";
 
 export type BookSource = "demo" | "shiply";
 
@@ -57,6 +72,11 @@ interface AppStateValue {
   toggleSaved: (id: string) => void;
   dismissedIds: string[];
   dismiss: (id: string) => void;
+  movements: MarketMovement[];
+  outcomes: JobOutcome[];
+  recordOutcome: (job: AnalysedJob, kind: OutcomeKind) => void;
+  workingJobId: string | null;
+  startWorking: (id: string | null) => void;
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null);
@@ -72,6 +92,16 @@ function readList(key: string): string[] {
   }
 }
 
+function readJson<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user, ready, configured } = useAuth();
   const [profile, setProfileState] = useState<OperatorProfile>(DEFAULT_PROFILE);
@@ -80,6 +110,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [movements, setMovements] = useState<MarketMovement[]>([]);
+  const [outcomes, setOutcomes] = useState<JobOutcome[]>([]);
+  const [workingJobId, setWorkingJobId] = useState<string | null>(null);
   const [geoTick, setGeoTick] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [book, setBookState] = useState<BookSource>("demo");
@@ -94,6 +127,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setSelectedIds(readList(SELECTED_KEY));
     setSavedIds(readList(SAVED_KEY));
     setDismissedIds(readList(DISMISSED_KEY));
+    setMovements(readJson<MarketMovement[]>(MOVE_KEY, []));
+    setOutcomes(readJson<JobOutcome[]>(OUT_KEY, []));
+    setWorkingJobId(window.localStorage.getItem(WORK_KEY));
     const storedBook = window.localStorage.getItem(BOOK_KEY);
     if (storedBook === "demo" || storedBook === "shiply") setBookState(storedBook);
     setHydrated(true);
@@ -124,6 +160,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }
         await upsertRemoteProfile(user.id, profileRef.current);
         if (!cancelled) setProfileSave("saved");
+      })
+      .then(async () => {
+        if (cancelled) return;
+        try {
+          const remoteOutcomes = await fetchOutcomes(user.id);
+          if (!cancelled && remoteOutcomes.length) {
+            setOutcomes(remoteOutcomes);
+            window.localStorage.setItem(OUT_KEY, JSON.stringify(remoteOutcomes));
+          }
+        } catch {
+          // Table may not exist yet — local outcomes still work.
+        }
       })
       .catch(() => {
         if (!cancelled) setProfileSave("error");
@@ -263,8 +311,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return body.jobCount ?? body.jobs?.length ?? 0;
   };
 
-  const persist = (key: string, ids: string[]) => {
-    window.localStorage.setItem(key, JSON.stringify(ids));
+  const persist = (key: string, value: unknown) => {
+    window.localStorage.setItem(key, JSON.stringify(value));
   };
 
   const toggleSelected = (id: string) => {
@@ -311,6 +359,24 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const recordOutcome = (job: AnalysedJob, kind: OutcomeKind) => {
+    const nextItem = makeOutcome(job, kind);
+    setOutcomes((prev) => {
+      const next = [nextItem, ...prev.filter((o) => o.jobId !== job.id)].slice(0, 80);
+      persist(OUT_KEY, next);
+      return next;
+    });
+    if (user) {
+      void insertOutcome(user.id, nextItem).catch(() => undefined);
+    }
+  };
+
+  const startWorking = (id: string | null) => {
+    setWorkingJobId(id);
+    if (id) window.localStorage.setItem(WORK_KEY, id);
+    else window.localStorage.removeItem(WORK_KEY);
+  };
+
   useEffect(() => {
     if (!hydrated) return;
     const jobs = liveJobs.length > 0 ? liveJobs : getRawJobs();
@@ -349,6 +415,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [profile, book, shiplyJobs, geoTick],
   );
 
+  useEffect(() => {
+    if (!hydrated) return;
+    const fingerprint = bookFingerprint(
+      book === "shiply" ? shiplyJobs : market.jobs,
+    );
+    const prev = readJson<ScanSnapshot | null>(SNAP_KEY, null);
+    if (prev?.fingerprint === fingerprint) return;
+    const next = snapshotFromMarket(market);
+    if (prev) {
+      const moves = diffScans(prev, next, savedIds);
+      setMovements(moves);
+      persist(MOVE_KEY, moves);
+    }
+    window.localStorage.setItem(SNAP_KEY, JSON.stringify(next));
+  }, [hydrated, book, shiplyJobs, market, savedIds]);
+
   const value = useMemo(
     () => ({
       profile,
@@ -373,6 +455,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       toggleSaved,
       dismissedIds,
       dismiss,
+      movements,
+      outcomes,
+      recordOutcome,
+      workingJobId,
+      startWorking,
     }),
     [
       profile,
@@ -385,6 +472,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       selectedIds,
       savedIds,
       dismissedIds,
+      movements,
+      outcomes,
+      workingJobId,
+      user,
     ],
   );
 

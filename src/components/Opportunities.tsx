@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useAppState } from "@/context/AppState";
+import { followOnJobs, jobById } from "@/lib/engine";
+import { movementOf } from "@/lib/scan-delta";
 import {
   betterThan,
   gbp,
@@ -33,8 +35,10 @@ type SortKey =
   | "pickupMiles";
 
 export function Opportunities() {
-  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile, book, bookStale } =
+  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile, book, bookStale, movements, workingJobId } =
     useAppState();
+  const working = workingJobId ? jobById(market.jobs, workingJobId) : null;
+  const followOns = working ? followOnJobs(market.jobs, working) : [];
   const [search, setSearch] = useState("");
   const [scoreMin, setScoreMin] = useState(0);
   const [profitMin, setProfitMin] = useState(0);
@@ -122,6 +126,17 @@ export function Opportunities() {
         </Link>
       </div>
 
+      {working ? (
+        <div className="rounded-lg border border-gold/25 bg-panel p-3 text-sm">
+          After {routeLabel(working.pickupCity, working.deliveryCity)},{" "}
+          {followOns.length} job{followOns.length === 1 ? "" : "s"} collect near{" "}
+          {working.deliveryCity}.{" "}
+          <Link href="/" className="text-gold hover:underline">
+            See the brief
+          </Link>
+        </div>
+      ) : null}
+
       <div className="grid gap-2 rounded-lg border border-line bg-panel p-3 md:grid-cols-4 lg:grid-cols-8">
         <input
           value={search}
@@ -199,6 +214,7 @@ export function Opportunities() {
             rank={index + 1}
             selected={selectedIds.includes(job.id)}
             onToggle={() => toggleSelected(job.id)}
+            move={movementOf(job, movements)}
           />
         ))}
       </div>
@@ -317,11 +333,13 @@ function MobileCard({
   rank,
   selected,
   onToggle,
+  move,
 }: {
   job: AnalysedJob;
   rank: number;
   selected: boolean;
   onToggle: () => void;
+  move: ReturnType<typeof movementOf>;
 }) {
   return (
     <article className="rounded-lg border border-line bg-panel p-4">
@@ -333,6 +351,21 @@ function MobileCard({
           </Link>
           <div className="mt-0.5 text-sm text-muted">{loadHeadline(job)}</div>
           <div className="mt-1 flex flex-wrap gap-1">
+            {move?.kind === "new" ? (
+              <span className="rounded-sm bg-gold/15 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider text-gold">
+                New
+              </span>
+            ) : null}
+            {move?.kind === "bid_down" ? (
+              <span className="rounded-sm bg-good/15 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider text-good">
+                Lowest dropped
+              </span>
+            ) : null}
+            {move?.kind === "bid_up" ? (
+              <span className="rounded-sm bg-warn/15 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider text-warn">
+                Lowest rose
+              </span>
+            ) : null}
             <SourceChip source={job.source} />
             {job.winnerLabels.map((w) => (
               <WinnerChip key={w} kind={w} />

@@ -167,10 +167,41 @@ export interface AnalysedJob extends RawJob {
   suggestedQuote: number;
 }
 
+export type OutcomeKind = "quoted" | "won" | "lost" | "skipped";
+
+export interface JobOutcome {
+  id: string;
+  jobId: string;
+  kind: OutcomeKind;
+  route: string;
+  profit: number;
+  revenue: number;
+  at: string;
+}
+
+export type MovementKind =
+  | "new"
+  | "gone"
+  | "bid_up"
+  | "bid_down"
+  | "quotes_up"
+  | "new_leader"
+  | "watched";
+
+export interface MarketMovement {
+  kind: MovementKind;
+  jobId: string;
+  label: string;
+  detail: string;
+  watched?: boolean;
+}
+
 export interface CombinationPlan {
   id: string;
   jobAId: string;
   jobBId: string;
+  jobCId?: string;
+  stops: 2 | 3;
   label: string;
   gapMiles: number;
   revenue: number;

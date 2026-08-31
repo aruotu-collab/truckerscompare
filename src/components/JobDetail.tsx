@@ -30,17 +30,31 @@ import {
   vehicleLabel,
   workingBid,
 } from "@/lib/format";
+import { latestOutcome, outcomeLabel, vsYourNorms } from "@/lib/outcomes";
 import { QuoteDecision } from "./QuoteDecision";
 import { TripDiagram } from "./TripDiagram";
 import { BandPill, JobFlags, Metric, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 import { clsx } from "./clsx";
+import type { OutcomeKind } from "@/lib/types";
 
 type DetailTab = "summary" | "quote" | "fit";
 
 export function JobDetail() {
   const id = normalizeJobId(useParams<{ id: string | string[] }>().id);
-  const { market, profile, selectedIds, toggleSelected, toggleSaved, savedIds, dismiss, bookStale } =
-    useAppState();
+  const {
+    market,
+    profile,
+    selectedIds,
+    toggleSelected,
+    toggleSaved,
+    savedIds,
+    dismiss,
+    bookStale,
+    outcomes,
+    recordOutcome,
+    workingJobId,
+    startWorking,
+  } = useAppState();
   const [tab, setTab] = useState<DetailTab>("summary");
   const job = jobById(market.jobs, id);
 
@@ -129,7 +143,14 @@ export function JobDetail() {
           onClick={() => toggleSaved(job.id)}
           className="min-h-11 rounded-md border border-line px-4 py-2 text-base md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
         >
-          {savedIds.includes(job.id) ? "Saved" : "Save"}
+          {savedIds.includes(job.id) ? "Watching" : "Watch"}
+        </button>
+        <button
+          type="button"
+          onClick={() => startWorking(workingJobId === job.id ? null : job.id)}
+          className="min-h-11 rounded-md border border-line px-4 py-2 text-base md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
+        >
+          {workingJobId === job.id ? "Working this" : "Start my day"}
         </button>
         <button
           type="button"
@@ -146,6 +167,27 @@ export function JobDetail() {
             Open compare
           </Link>
         ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted">Outcome</span>
+        {(["quoted", "won", "lost", "skipped"] as OutcomeKind[]).map((kind) => {
+          const current = latestOutcome(outcomes, job.id);
+          const active = current?.kind === kind;
+          return (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => recordOutcome(job, kind)}
+              className={clsx(
+                "min-h-11 rounded-md border px-3 py-2 text-sm",
+                active ? "border-gold text-gold" : "border-line text-muted",
+              )}
+            >
+              {outcomeLabel(kind)}
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
@@ -385,6 +427,10 @@ export function JobDetail() {
               {gbp(Math.abs(job.profit - market.market.medianProfit))}{" "}
               {job.profit >= market.market.medianProfit ? "more" : "less"} than today&apos;s
               median profit of {gbp(market.market.medianProfit)}.
+            </li>
+            <li>
+              <span className="text-muted">Work you normally take. </span>
+              {vsYourNorms(job, outcomes)}
             </li>
             <li>
               <span className="text-muted">Similar work. </span>

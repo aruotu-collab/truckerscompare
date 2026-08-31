@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useAppState } from "@/context/AppState";
-import { compareTradeoff, vsHeadline } from "@/lib/explanations";
+import { compareTradeoff, decisionBoundary, vsHeadline } from "@/lib/explanations";
 import { deadMilesSplit, gbp, hasMarketBid, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minsLabel, routeLabel, workingBid } from "@/lib/format";
 import type { AnalysedJob } from "@/lib/types";
 import { clsx } from "./clsx";
@@ -175,7 +175,15 @@ export function CompareView() {
           <TripDiagram job={winner} size="sm" />
         </div>
         <p className="mt-3 max-w-3xl text-sm leading-6">{why}</p>
-        <p className="mt-3 text-xs text-muted">
+        <div className="mt-4">
+          <div className="text-sm text-gold">This lead changes if</div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
+            {decisionBoundary(winner, jobs.find((j) => j.id !== winner.id)).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+        <p className="mt-3 text-sm text-muted">
           The score does not override a real-life constraint. If you must finish
           near home, prefer the job that closes that gap even when it ranks lower.
         </p>

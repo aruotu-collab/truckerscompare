@@ -378,6 +378,7 @@ function findCombinations(
         id: `${a.id}__${b.id}`,
         jobAId: a.id,
         jobBId: b.id,
+        stops: 2,
         label: `${a.pickupCity} → ${a.deliveryCity} → ${b.deliveryCity}`,
         gapMiles: gap,
         revenue: a.revenue + b.revenue,
@@ -393,11 +394,92 @@ function findCombinations(
     }
   }
 
+  const pool = [...jobs]
+    .filter((j) => j.vehicleFit >= 8 && j.profit > 80)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+  for (let i = 0; i < pool.length; i++) {
+    const a = pool[i]!;
+    for (let j = 0; j < pool.length; j++) {
+      if (i === j) continue;
+      const b = pool[j]!;
+      const gap1 = roadMiles(a.deliveryCity, b.pickupCity);
+      if (gap1 > 28) continue;
+      for (let k = 0; k < pool.length; k++) {
+        if (k === i || k === j) continue;
+        const c = pool[k]!;
+        const gap2 = roadMiles(b.deliveryCity, c.pickupCity);
+        if (gap2 > 28) continue;
+        const homeCostA =
+          a.deliveryToHomeMiles *
+            (fuelPencePerMile(profile) + profile.runningCostPerMile) +
+          (a.deliveryToHomeMinutes / 60) * profile.driverHourlyCost;
+        const homeCostB =
+          b.deliveryToHomeMiles *
+            (fuelPencePerMile(profile) + profile.runningCostPerMile) +
+          (b.deliveryToHomeMinutes / 60) * profile.driverHourlyCost;
+        const hours =
+          a.totalHours -
+          a.deliveryToHomeMinutes / 60 +
+          b.totalHours -
+          b.deliveryToHomeMinutes / 60 +
+          c.totalHours +
+          roadMinutes(a.deliveryCity, b.pickupCity) / 60 +
+          roadMinutes(b.deliveryCity, c.pickupCity) / 60;
+        if (hours > profile.workingHours + 1.25) continue;
+        const extraDeadCost =
+          (gap1 + gap2) * (0.35 + profile.runningCostPerMile);
+        const profit =
+          a.profit + homeCostA + b.profit + homeCostB + c.profit - extraDeadCost;
+        const deadMiles =
+          a.pickupMiles + gap1 + gap2 + c.deliveryToHomeMiles;
+        const score = clamp(
+          Math.round(
+            52 +
+              scale(profit, 280, 1200) * 26 +
+              scale(profit / hours, 30, 90) * 14 +
+              (gap1 + gap2 < 20 ? 5 : 0),
+          ),
+          50,
+          99,
+        );
+        plans.push({
+          id: `${a.id}__${b.id}__${c.id}`,
+          jobAId: a.id,
+          jobBId: b.id,
+          jobCId: c.id,
+          stops: 3,
+          label: `${a.pickupCity} → ${a.deliveryCity} → ${b.deliveryCity} → ${c.deliveryCity}`,
+          gapMiles: gap1 + gap2,
+          revenue: a.revenue + b.revenue + c.revenue,
+          costs: round2(
+            a.costs.total -
+              homeCostA +
+              b.costs.total -
+              homeCostB +
+              c.costs.total +
+              extraDeadCost,
+          ),
+          profit: round2(profit),
+          hours: round2(hours),
+          profitPerHour: round2(profit / hours),
+          deadMiles: Math.round(deadMiles),
+          finishCity: c.deliveryCity,
+          finishToHomeMiles: c.deliveryToHomeMiles,
+          score,
+        });
+      }
+    }
+  }
+
   plans.sort((a, b) => b.score - a.score || b.profit - a.profit);
   const seen = new Set<string>();
   const unique: CombinationPlan[] = [];
   for (const plan of plans) {
-    const key = [plan.jobAId, plan.jobBId].sort().join(":");
+    const key = [plan.jobAId, plan.jobBId, plan.jobCId ?? ""]
+      .filter(Boolean)
+      .sort()
+      .join(":");
     if (seen.has(key)) continue;
     seen.add(key);
     unique.push(plan);
@@ -460,6 +542,9 @@ function applyWinnerLabels(jobs: AnalysedJob[], winners: Winners): void {
   assign(winners.bestPerHour?.id, "best_per_hour");
   assign(winners.lowestDead?.id, "lowest_dead");
   assign(winners.towardsHome?.id, "towards_home");
+  assign(winners.bestCombination?.jobAId, "best_combination");
+  assign(winners.bestCombination?.jobBId, "best_combination");
+  assign(winners.bestCombination?.jobCId, "best_combination");
 }
 
 function summarise(
@@ -632,4 +717,19 @@ export function jobById(jobs: AnalysedJob[], id: string): AnalysedJob | undefine
     decoded = id;
   }
   return jobs.find((j) => j.id === id || j.id === decoded);
+}
+
+/** Jobs that collect near this drop — live working mode after you take a load. */
+export function followOnJobs(
+  jobs: AnalysedJob[],
+  after: AnalysedJob,
+  maxGapMiles = 30,
+): AnalysedJob[] {
+  return jobs
+    .filter((job) => {
+      if (job.id === after.id) return false;
+      if (job.vehicleFit < 7) return false;
+      return roadMiles(after.deliveryCity, job.pickupCity) <= maxGapMiles;
+    })
+    .sort((a, b) => b.score - a.score);
 }

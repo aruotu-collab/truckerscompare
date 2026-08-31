@@ -110,11 +110,11 @@ export function vsHeadline(a: AnalysedJob, b: AnalysedJob): string[] {
 
 export function combinationWhy(plan: CombinationPlan, single: AnalysedJob | null): string {
   if (!single) {
-    return `Two compatible jobs with ${milesLabel(plan.gapMiles)} between drop and next collection. Combined profit ${gbp(plan.profit)} over ${hoursLabel(plan.hours)}.`;
+    return `${plan.stops === 3 ? "Three" : "Two"} compatible jobs with ${milesLabel(plan.gapMiles)} empty between drops and next collections. Combined profit ${gbp(plan.profit)} over ${hoursLabel(plan.hours)}.`;
   }
   const extra = plan.profit - single.profit;
   const home = single.deliveryToHomeMiles - plan.finishToHomeMiles;
-  return `Versus taking only ${routeLabel(single.pickupCity, single.deliveryCity)}, this pair is ${gbp(extra)} more profit and finishes ${home > 0 ? milesLabel(home) + " closer to home" : milesLabel(-home) + " further from home"}. Trade-off: one extra collection and delivery.`;
+  return `Versus taking only ${routeLabel(single.pickupCity, single.deliveryCity)}, this ${plan.stops === 3 ? "three" : "two"}-job day is ${gbp(extra)} more profit and finishes ${home > 0 ? milesLabel(home) + " closer to home" : milesLabel(-home) + " further from home"}. Trade-off: extra collections and deliveries.`;
 }
 
 export function decisionBoundary(winner: AnalysedJob, rival: AnalysedJob | undefined): string[] {

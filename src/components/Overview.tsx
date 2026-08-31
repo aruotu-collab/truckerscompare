@@ -20,6 +20,7 @@ import {
   winnerLabel,
 } from "@/lib/format";
 import type { AnalysedJob, CombinationPlan, WinnerKind } from "@/lib/types";
+import { DailyBrief } from "./DailyBrief";
 import { TripDiagram } from "./TripDiagram";
 import { BandPill, MarketplaceBids, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
@@ -73,6 +74,8 @@ export function Overview() {
           )}
         </p>
       </div>
+
+      <DailyBrief />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {(
@@ -129,7 +132,9 @@ export function Overview() {
 
       {combinations[0] && comboA ? (
         <section className="rounded-lg border border-line bg-panel p-4">
-          <h2 className="text-lg font-medium">Best two-job day</h2>
+          <h2 className="text-lg font-medium">
+            Best {combinations[0].stops === 3 ? "three" : "two"}-job day
+          </h2>
           <p className="mt-2 max-w-3xl text-sm text-muted">
             {combinationWhy(combinations[0], winners.bestOverall)}
           </p>
@@ -223,13 +228,14 @@ function WinnerComboCard({
   if (!plan) {
     return (
       <div className="rounded-lg border border-line bg-panel p-4 text-sm text-muted">
-        No compatible two-job chain in this list.
+        No compatible two- or three-job chain in this list.
       </div>
     );
   }
+  const ids = [plan.jobAId, plan.jobBId, plan.jobCId].filter(Boolean).join(",");
   return (
     <Link
-      href={`/compare?ids=${plan.jobAId},${plan.jobBId}`}
+      href={`/compare?ids=${ids}`}
       className="block rounded-lg border border-gold/25 bg-panel p-4 hover:border-gold/50"
     >
       <WinnerChip kind="best_combination" />
@@ -312,6 +318,7 @@ function dummyPlan(): CombinationPlan {
     id: "",
     jobAId: "",
     jobBId: "",
+    stops: 2,
     label: "",
     gapMiles: 0,
     revenue: 0,
