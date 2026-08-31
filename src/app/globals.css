@@ -45,23 +45,16 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Desktop chrome needs width and height. Landscape phones stay mobile. */
-.shell-sidebar,
-.shell-desk-only,
 .shell-location-inline {
   display: none;
 }
 
-@media (min-width: 768px) and (min-height: 540px) {
-  .shell-sidebar {
-    display: flex;
-  }
-
-  .shell-mobile {
+@media (min-width: 768px), ((orientation: landscape) and (max-height: 539px)) {
+  .shell-location-below {
     display: none !important;
   }
 
-  .shell-desk-only {
+  .shell-location-inline {
     display: block;
   }
 }
@@ -70,14 +63,6 @@ body {
   .shell-header {
     padding-top: max(0.4rem, env(safe-area-inset-top));
     padding-bottom: 0.4rem;
-  }
-
-  .shell-location-below {
-    display: none !important;
-  }
-
-  .shell-location-inline {
-    display: block;
   }
 }
 
