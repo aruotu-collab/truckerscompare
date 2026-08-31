@@ -1,10 +1,18 @@
-import { milesLabel } from "@/lib/format";
+import { milesLabel, minsLabel } from "@/lib/format";
 import type { AnalysedJob, RouteLeg } from "@/lib/types";
 import { clsx } from "./clsx";
 
 type TripJob = Pick<
   AnalysedJob,
-  "pickupCity" | "deliveryCity" | "pickupMiles" | "loadedMiles" | "deliveryToHomeMiles" | "legs"
+  | "pickupCity"
+  | "deliveryCity"
+  | "pickupMiles"
+  | "loadedMiles"
+  | "deliveryToHomeMiles"
+  | "pickupMinutes"
+  | "loadedMinutes"
+  | "deliveryToHomeMinutes"
+  | "legs"
 >;
 
 export function TripDiagram({
@@ -27,18 +35,18 @@ export function TripDiagram({
       }}
       role="img"
       aria-label={
-        `Empty van ${milesLabel(trip.deadMiles)} to collect at ${trip.pickup}. ` +
-        `Loaded ${milesLabel(trip.loadedMiles)} to ${trip.drop}. ` +
-        `Empty ${milesLabel(trip.homeMiles)} home to ${trip.home}.`
+        `Empty van ${milesLabel(trip.deadMiles)} / ${minsLabel(trip.deadMinutes)} to collect at ${trip.pickup}. ` +
+        `Loaded ${milesLabel(trip.loadedMiles)} / ${minsLabel(trip.loadedMinutes)} to ${trip.drop}. ` +
+        `Empty ${milesLabel(trip.homeMiles)} / ${minsLabel(trip.homeMinutes)} home to ${trip.home}.`
       }
     >
-      <div className="flex min-w-0 items-start overflow-x-auto">
+      <div className="flex min-w-0 items-start overflow-x-auto overscroll-x-contain">
         <Stop place={trip.start} role="Now" loaded={false} size={size} />
-        <MileLine miles={trip.deadMiles} loaded={false} size={size} />
+        <MileLine miles={trip.deadMiles} minutes={trip.deadMinutes} loaded={false} size={size} />
         <Stop place={trip.pickup} role="Collect" loaded size={size} />
-        <MileLine miles={trip.loadedMiles} loaded size={size} />
+        <MileLine miles={trip.loadedMiles} minutes={trip.loadedMinutes} loaded size={size} />
         <Stop place={trip.drop} role="Drop" loaded size={size} />
-        <MileLine miles={trip.homeMiles} loaded={false} size={size} />
+        <MileLine miles={trip.homeMiles} minutes={trip.homeMinutes} loaded={false} size={size} />
         <Stop place={trip.home} role="Home" loaded={false} size={size} />
       </div>
     </div>
@@ -57,6 +65,9 @@ function tripFromJob(job: TripJob) {
     deadMiles: dead?.miles ?? job.pickupMiles,
     loadedMiles: load?.miles ?? job.loadedMiles,
     homeMiles: home?.miles ?? job.deliveryToHomeMiles,
+    deadMinutes: dead?.minutes ?? job.pickupMinutes,
+    loadedMinutes: load?.minutes ?? job.loadedMinutes,
+    homeMinutes: home?.minutes ?? job.deliveryToHomeMinutes,
   };
 }
 
@@ -77,19 +88,19 @@ function Stop({
 }) {
   const compact = size === "sm";
   return (
-    <div className={clsx("flex shrink-0 flex-col items-center", compact ? "w-16" : "w-[4.5rem]")}>
+    <div className={clsx("flex shrink-0 flex-col items-center", compact ? "w-16 sm:w-[4.25rem]" : "w-[4.5rem] sm:w-20")}>
       <VanMark loaded={loaded} size={size} />
       <div
         className={clsx(
-          "mt-1 w-full text-center leading-tight",
-          compact ? "text-[9px] text-muted" : "text-[11px]",
+          "mt-1 w-full break-words text-center leading-tight",
+          compact ? "text-sm text-muted sm:text-xs" : "text-sm",
         )}
         title={`${role}: ${place}`}
       >
         {place}
       </div>
       {compact ? null : (
-        <div className="mt-0.5 text-[9px] uppercase tracking-wider text-muted">{role}</div>
+        <div className="mt-0.5 text-xs uppercase tracking-wider text-muted">{role}</div>
       )}
     </div>
   );
@@ -97,17 +108,19 @@ function Stop({
 
 function MileLine({
   miles,
+  minutes,
   loaded,
   size,
 }: {
   miles: number;
+  minutes: number;
   loaded: boolean;
   size: "sm" | "md";
 }) {
   const compact = size === "sm";
   return (
     <div
-      className="flex min-w-6 flex-col items-center sm:min-w-8"
+      className="flex min-w-10 flex-col items-center sm:min-w-12"
       style={{
         flexGrow: 10 + Math.sqrt(Math.max(miles, 0)) * 6,
         flexBasis: 0,
@@ -122,12 +135,20 @@ function MileLine({
       />
       <div
         className={clsx(
-          "mt-1 tabular leading-none",
-          compact ? "text-[9px] text-muted" : "text-[11px]",
+          "mt-1 text-center tabular leading-tight",
+          compact ? "text-xs text-muted" : "text-sm sm:text-xs",
           loaded && !compact ? "text-good" : "text-muted",
         )}
       >
-        {milesLabel(miles)}
+        <div>{milesLabel(miles)}</div>
+        <div
+          className={clsx(
+            compact ? "mt-px" : "mt-0.5",
+            loaded && !compact ? "text-good/75" : "text-muted",
+          )}
+        >
+          {minsLabel(minutes)}
+        </div>
       </div>
     </div>
   );

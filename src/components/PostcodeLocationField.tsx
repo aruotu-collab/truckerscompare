@@ -72,17 +72,17 @@ export function PostcodeLocationField({
 
   return (
     <div>
-      <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-muted">
+      <span className="mb-1.5 block text-sm uppercase tracking-wider text-muted md:text-xs">
         {label}
       </span>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <input
           value={value}
           onChange={(e) => onChange({ postcode: e.target.value })}
           onBlur={(e) => applyPlace(e.target.value)}
           placeholder="SE6"
           autoComplete="postal-code"
-          className="min-w-0 flex-1 rounded-md border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-gold/50"
+          className="min-h-11 min-w-0 flex-1 rounded-md border border-line bg-ink px-3 py-2 text-base outline-none focus:border-gold/50 md:text-sm"
         />
         {locate ? (
           <button
@@ -90,7 +90,7 @@ export function PostcodeLocationField({
             disabled={busy}
             onClick={useLocation}
             className={clsx(
-              "shrink-0 rounded-md border border-line px-3 py-2 text-sm",
+              "min-h-11 shrink-0 rounded-md border border-line px-3 py-2 text-base md:text-sm",
               busy ? "opacity-50" : "hover:border-gold/40 hover:text-text",
             )}
           >
@@ -98,7 +98,7 @@ export function PostcodeLocationField({
           </button>
         ) : null}
       </div>
-      <span className="mt-1 block text-xs text-muted">{hint}</span>
+      <span className="mt-1 block text-sm text-muted md:text-xs">{hint}</span>
       {error ? <p className="mt-1 text-xs text-bad">{error}</p> : null}
     </div>
   );

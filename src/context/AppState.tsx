@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useAuth } from "@/context/Auth";
 import { analyseMarket, getRawJobs } from "@/lib/engine";
+import { isShiplyBookFresh } from "@/lib/format";
 import { hydratePlaceGeos, placesForBook } from "@/lib/postcode-points";
 import { DEFAULT_PROFILE, loadProfile, saveProfile } from "@/lib/profile";
 import {
@@ -40,6 +41,7 @@ interface AppStateValue {
   book: BookSource;
   setBook: (next: BookSource) => void;
   liveJobs: RawJob[];
+  bookStale: boolean;
   connection: MarketplaceConnection | null;
   importShiplyJobs: (jobs: RawJob[]) => Promise<void>;
   disconnectShiply: () => Promise<void>;
@@ -58,6 +60,7 @@ interface AppStateValue {
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null);
+const EMPTY_JOBS: RawJob[] = [];
 
 function readList(key: string): string[] {
   if (typeof window === "undefined") return [];
@@ -78,6 +81,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [geoTick, setGeoTick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const [book, setBookState] = useState<BookSource>("demo");
   const [liveJobs, setLiveJobs] = useState<RawJob[]>([]);
   const [connection, setConnection] = useState<MarketplaceConnection | null>(null);
@@ -156,7 +160,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [ready, hydrated, configured, user?.id]);
 
   useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => {
+      window.clearInterval(tick);
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
   }, []);
@@ -217,9 +223,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   };
 
   const acceptPulledJobs = (jobs: RawJob[]) => {
-    if (jobs.length === 0) return;
     setLiveJobs(jobs);
-    setBook("shiply");
+    setConnection((prev) =>
+      prev
+        ? {
+            ...prev,
+            lastSyncedAt: new Date().toISOString(),
+            jobCount: jobs.length,
+            lastError: null,
+            status: jobs.length > 0 ? "connected" : prev.status,
+          }
+        : prev,
+    );
+    if (jobs.length > 0) setBook("shiply");
   };
 
   const syncFromShiply = async () => {
@@ -242,8 +258,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         driverFacingError(body.error, "Could not refresh Shiply."),
       );
     }
-    await refreshShiply();
-    if (body.jobs?.length) acceptPulledJobs(body.jobs);
+        await refreshShiply();
+    acceptPulledJobs(body.jobs ?? []);
     return body.jobCount ?? body.jobs?.length ?? 0;
   };
 
@@ -317,12 +333,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     profile.homeCity,
   ]);
 
+  const bookStale =
+    book === "shiply" &&
+    liveJobs.length > 0 &&
+    !isShiplyBookFresh(connection?.lastSyncedAt, now);
+  const shiplyJobs = book === "shiply" && !bookStale ? liveJobs : EMPTY_JOBS;
+
   const market = useMemo(
     () =>
-      analyseMarket(profile, liveJobs.length > 0 ? liveJobs : undefined, {
-        applyPickupRadius: liveJobs.length === 0,
-      }),
-    [profile, liveJobs, geoTick],
+      analyseMarket(
+        profile,
+        book === "shiply" ? shiplyJobs : undefined,
+        { applyPickupRadius: book !== "shiply" },
+      ),
+    [profile, book, shiplyJobs, geoTick],
   );
 
   const value = useMemo(
@@ -333,6 +357,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       book,
       setBook,
       liveJobs,
+      bookStale,
       connection,
       importShiplyJobs,
       disconnectShiply,
@@ -354,6 +379,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       profileSave,
       book,
       liveJobs,
+      bookStale,
       connection,
       market,
       selectedIds,
@@ -365,7 +391,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   if (!hydrated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#070b10] text-sm text-[#8d99ab]">
-        Loading the book…
+        Loading jobs…
       </div>
     );
   }

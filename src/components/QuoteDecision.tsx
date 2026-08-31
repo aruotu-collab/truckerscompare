@@ -68,14 +68,14 @@ export function QuoteDecision({
   return (
     <section className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-lg border border-line bg-panel p-4">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Decision</p>
-        <h2 className="mt-1 text-sm font-medium">What-if quote</h2>
-        <p className="mt-1 text-xs text-muted">
+        <p className="text-sm uppercase tracking-[0.22em] text-gold md:text-xs">Decision</p>
+        <h2 className="mt-1 text-base font-medium">Quote</h2>
+        <p className="mt-1 text-sm text-muted">
           Change the number you would put on Shiply. Score and rank are versus
-          this book, not a win probability.
+          the other jobs here, not a win chance.
         </p>
         <label className="mt-4 block">
-          <span className="text-[11px] uppercase tracking-wider text-muted">Your quote</span>
+          <span className="text-sm uppercase tracking-wider text-muted">Your quote</span>
           <input
             type="number"
             min={0}
@@ -100,7 +100,7 @@ export function QuoteDecision({
               type="button"
               onClick={() => setQuote(n)}
               className={clsx(
-                "rounded-md border px-2 py-1 text-xs tabular",
+                "min-h-11 rounded-md border px-3 py-2 text-sm tabular",
                 n === quote ? "border-gold text-gold" : "border-line text-muted",
               )}
             >
@@ -115,8 +115,8 @@ export function QuoteDecision({
           <Stat label="Score" value={String(sim.score)} />
           <Stat label="Rank" value={`#${sim.rank}`} />
         </dl>
-        <p className="mt-2 text-[11px] text-muted">
-          #{sim.rank} of {sim.bookSize} in this book. Margin {pct(sim.margin * 100)}.
+        <p className="mt-2 text-sm text-muted">
+          #{sim.rank} of {sim.bookSize} jobs. Margin {pct(sim.margin * 100)}.
         </p>
         <button
           type="button"
@@ -158,7 +158,7 @@ export function QuoteDecision({
 
       <div className="rounded-lg border border-line bg-panel p-4">
         <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Before you quote</p>
-        <h2 className="mt-1 text-sm font-medium">Break-even intelligence</h2>
+        <h2 className="mt-1 text-sm font-medium">Break-even</h2>
         <p className="mt-1 text-xs text-muted">
           Cost to fulfil is fuel, running, time, tolls and helper — before the
           marketplace cut. Break-even is the quote that also covers that fee.
@@ -244,7 +244,7 @@ function Stat({
 }) {
   return (
     <div>
-      <div className="text-[11px] text-muted">{label}</div>
+      <div className="text-sm text-muted">{label}</div>
       <div className={clsx("mt-0.5 tabular", gold && "text-gold")}>{value}</div>
     </div>
   );
@@ -272,14 +272,14 @@ function NumField({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] uppercase tracking-wider text-muted">{label}</span>
+      <span className="mb-1 block text-sm uppercase tracking-wider text-muted">{label}</span>
       <input
         type="number"
         step={step}
         min={0}
         value={value}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="w-full rounded-md border border-line bg-ink px-2 py-1.5 text-sm tabular"
+        className="min-h-11 w-full rounded-md border border-line bg-ink px-3 py-2 text-base tabular"
       />
     </label>
   );

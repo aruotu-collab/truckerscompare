@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAppState } from "@/context/AppState";
 import { useAuth } from "@/context/Auth";
@@ -12,6 +12,7 @@ export function ConnectShiply() {
   const { user, ready } = useAuth();
   const {
     liveJobs,
+    bookStale,
     connection,
     disconnectShiply,
     refreshShiply,
@@ -23,6 +24,15 @@ export function ConnectShiply() {
   const [busy, setBusy] = useState(false);
   const [liveViewUrl, setLiveViewUrl] = useState("");
   const [showSignInAgain, setShowSignInAgain] = useState(false);
+
+  useEffect(() => {
+    if (!liveViewUrl) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [liveViewUrl]);
 
   if (!ready) {
     return <p className="text-sm text-muted">Checking your session…</p>;
@@ -55,7 +65,12 @@ export function ConnectShiply() {
   function startSignIn() {
     setBusy(true);
     setError("");
-    void fetch("/api/shiply/start", { method: "POST" })
+    const mobile = window.matchMedia("(max-width: 767px)").matches;
+    void fetch("/api/shiply/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mobile }),
+    })
       .then(async (res) => {
         const body = await readApiJson<{
           error?: string;
@@ -66,7 +81,6 @@ export function ConnectShiply() {
         }
         if (body.liveViewUrl) {
           setLiveViewUrl(body.liveViewUrl);
-          window.open(body.liveViewUrl, "_blank", "noopener,noreferrer");
         }
       })
       .catch((err) =>
@@ -96,7 +110,7 @@ export function ConnectShiply() {
           throw new Error(driverFacingError(body.error, "Could not pull jobs."));
         }
         await refreshShiply();
-        if (body.jobs?.length) acceptPulledJobs(body.jobs);
+        acceptPulledJobs(body.jobs ?? []);
         setLiveViewUrl("");
         setShowSignInAgain(false);
       })
@@ -134,23 +148,31 @@ export function ConnectShiply() {
             {profile.maxDeadMiles > 0
               ? `${profile.maxDeadMiles} miles of ${searchPlaceLabel(profile)}`
               : `the whole country`}
-            . That list is the book — we do not thin it again.
+            . That is the job list we rank — we do not thin it again.
           </p>
           <p className="mt-2 text-sm">
-            <span className="text-good">Connected</span>
+            <span className={bookStale ? "text-warn" : "text-good"}>
+              {bookStale ? "Older than 5 hours — refresh" : "Connected"}
+            </span>
             <span className="text-muted">
               {" "}
-              · {liveJobs.length} Shiply jobs
+              · {bookStale ? 0 : liveJobs.length} Shiply jobs
               {connection?.lastSyncedAt
                 ? ` · last refresh ${new Date(connection.lastSyncedAt).toLocaleString("en-GB")}`
                 : ""}
             </span>
           </p>
+          {bookStale ? (
+            <p className="mt-2 text-sm text-muted">
+              Listings that have left Shiply are hidden. Refresh to pull what is
+              still live.
+            </p>
+          ) : null}
           <button
             type="button"
             disabled={busy}
             onClick={refreshJobs}
-            className="mt-4 rounded-md bg-gold px-3 py-1.5 text-sm text-ink disabled:opacity-50"
+            className="mt-4 min-h-12 rounded-md bg-gold px-4 py-3 text-base text-ink disabled:opacity-50 md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
           >
             {busy ? "Refreshing…" : "Refresh from Shiply"}
           </button>
@@ -162,30 +184,30 @@ export function ConnectShiply() {
           n={connected ? 3 : 2}
           title={needsReconnect ? "Shiply needs you to sign in again" : "Sign in on Shiply"}
         >
-          <ol className="list-decimal space-y-3 pl-5 text-sm">
+          <ol className="list-decimal space-y-3 pl-5 text-base md:text-sm">
             <li>
-              Click{" "}
-              <span className="text-text">Open Shiply sign-in</span>. A hosted
-              window opens on the Shiply login page. Use your own Shiply email
-              and password there. We never see or store them.
+              Tap{" "}
+              <span className="text-text">Open Shiply sign-in</span>. Shiply
+              fills this screen. Use your own Shiply email and password there.
+              We never see or store them.
             </li>
             <li>
               If Shiply emails a “protect your account” link, paste that link
-              into the <span className="text-text">hosted window</span> address
-              bar — not into Gmail or Edge. Opening it in your own browser signs
-              in the wrong place.
+              into the <span className="text-text">Shiply window</span> address
+              bar — not into Gmail or your phone browser. Opening it elsewhere
+              signs in the wrong place.
             </li>
             <li>
-              When you can see your Shiply search or dashboard, come back here
-              and click <span className="text-text">I’ve signed in — pull jobs</span>.
+              When you can see your Shiply search or dashboard, tap{" "}
+              <span className="text-text">Done — pull jobs</span>.
             </li>
           </ol>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="button"
               disabled={busy}
               onClick={startSignIn}
-              className="rounded-md bg-gold px-3 py-1.5 text-sm text-ink disabled:opacity-50"
+              className="min-h-12 rounded-md bg-gold px-4 py-3 text-base text-ink disabled:opacity-50 md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
             >
               {busy ? "Starting…" : "Open Shiply sign-in"}
             </button>
@@ -193,33 +215,11 @@ export function ConnectShiply() {
               type="button"
               disabled={busy}
               onClick={pullJobs}
-              className="rounded-md border border-line px-3 py-1.5 text-sm"
+              className="min-h-12 rounded-md border border-line px-4 py-3 text-base md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
             >
               {busy ? "Pulling…" : "I’ve signed in — pull jobs"}
             </button>
           </div>
-          {liveViewUrl ? (
-            <div className="-mx-4 mt-4 overflow-hidden border-y border-line md:-mx-6 md:rounded-md md:border">
-              <iframe
-                title="Shiply sign-in"
-                src={liveViewUrl}
-                className="h-[min(88vh,920px)] w-full origin-top-left bg-white [zoom:1.35]"
-                allow="clipboard-write"
-              />
-              <p className="border-t border-line px-3 py-2 text-xs text-muted">
-                If this window is blank,{" "}
-                <a
-                  href={liveViewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gold hover:underline"
-                >
-                  open Shiply sign-in in a new tab
-                </a>
-                .
-              </p>
-            </div>
-          ) : null}
         </Step>
       ) : (
         <p className="text-sm text-muted">
@@ -238,7 +238,7 @@ export function ConnectShiply() {
       {shownError ? <p className="text-sm text-bad">{shownError}</p> : null}
 
       {connected ? (
-        <p className="text-xs text-muted">
+        <p className="text-sm text-muted">
           Finished with this account on this device?{" "}
           <button
             type="button"
@@ -250,6 +250,59 @@ export function ConnectShiply() {
           </button>
         </p>
       ) : null}
+
+      {liveViewUrl ? (
+        <ShiplyLiveView
+          url={liveViewUrl}
+          busy={busy}
+          onPull={pullJobs}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ShiplyLiveView({
+  url,
+  busy,
+  onPull,
+}: {
+  url: string;
+  busy: boolean;
+  onPull: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-ink pt-[env(safe-area-inset-top)]">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-3 py-3">
+        <div className="min-w-0">
+          <p className="text-base font-medium">Shiply sign-in</p>
+          <p className="text-sm text-muted">Sign in here, then tap Done.</p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onPull}
+          className="min-h-12 shrink-0 rounded-md bg-gold px-4 py-3 text-base font-medium text-ink disabled:opacity-50"
+        >
+          {busy ? "Pulling…" : "Done — pull jobs"}
+        </button>
+      </div>
+      <iframe
+        title="Shiply sign-in"
+        src={url}
+        className="min-h-0 w-full flex-1 bg-white"
+        allow="clipboard-write; fullscreen"
+      />
+      <div className="shrink-0 border-t border-line px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block py-2 text-base text-gold"
+        >
+          Open in a new tab if this is blank
+        </a>
+      </div>
     </div>
   );
 }
@@ -257,11 +310,11 @@ export function ConnectShiply() {
 function Intro() {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Marketplace</p>
-      <h1 className="mt-1 text-2xl font-medium">Connect Shiply</h1>
+      <p className="text-xs uppercase tracking-[0.22em] text-gold">Live jobs</p>
+      <h1 className="mt-1 text-2xl font-medium">Shiply</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
-        Do this once. After that, refresh when you want new jobs. We never
-        store your Shiply password.
+        Connect once, then refresh when you want new jobs. We never store your
+        Shiply password.
       </p>
     </div>
   );
@@ -291,7 +344,7 @@ function Step({
           {n}
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-medium">{title}</h2>
+          <h2 className="text-base font-medium md:text-sm">{title}</h2>
           <div className="mt-2">{children}</div>
         </div>
       </div>

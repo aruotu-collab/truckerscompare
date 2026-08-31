@@ -27,6 +27,7 @@
   --color-good: var(--good);
   --color-bad: var(--bad);
   --color-info: var(--info);
+  --color-warn: var(--warn);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -36,10 +37,27 @@ body {
   background: var(--ink);
   color: var(--text);
   min-height: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 body {
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+@media (max-width: 767px) {
+  html {
+    font-size: 17px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 1rem;
+    min-height: 2.75rem;
+  }
 }
 
 .tabular {

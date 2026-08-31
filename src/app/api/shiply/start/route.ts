@@ -14,7 +14,7 @@ import { driverFacingError } from "@/lib/user-error";
 
 export const maxDuration = 60;
 
-export async function POST() {
+export async function POST(request: Request) {
   if (!browserbaseConfigured()) {
     return NextResponse.json(
       { error: "Browserbase is not configured on this environment." },
@@ -28,10 +28,13 @@ export async function POST() {
   }
 
   try {
+    const body = (await request.json().catch(() => ({}))) as { mobile?: boolean };
     const existing = await readConnectionMeta(user.id);
     const contextId =
       existing?.browserbase_context_id ?? (await createShiplyContext(user.id));
-    const session = await createPersistedSession(contextId);
+    const session = await createPersistedSession(contextId, {
+      mobile: Boolean(body.mobile),
+    });
     const { page } = await openShiplyPage(session.connectUrl);
     await goToShiplyLogin(page);
 

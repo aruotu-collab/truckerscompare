@@ -21,9 +21,10 @@ import {
   loadHeadline,
   loadLabel,
   marketPriceLabel,
+  deadMilesSplit,
   milesLabel,
+  minsLabel,
   normalizeJobId,
-  minutesLabel,
   postedLabel,
   routeLabel,
   vehicleLabel,
@@ -38,7 +39,7 @@ type DetailTab = "summary" | "quote" | "fit";
 
 export function JobDetail() {
   const id = normalizeJobId(useParams<{ id: string | string[] }>().id);
-  const { market, profile, selectedIds, toggleSelected, toggleSaved, savedIds, dismiss } =
+  const { market, profile, selectedIds, toggleSelected, toggleSaved, savedIds, dismiss, bookStale } =
     useAppState();
   const [tab, setTab] = useState<DetailTab>("summary");
   const job = jobById(market.jobs, id);
@@ -46,9 +47,13 @@ export function JobDetail() {
   if (!job) {
     return (
       <div>
-        <p className="text-muted">That opportunity is not in the current book.</p>
-        <Link href="/opportunities" className="mt-3 inline-block text-gold">
-          Back to opportunities
+        <p className="text-muted">
+          {bookStale
+            ? "This listing is hidden because the Shiply jobs are more than 5 hours old. Refresh to pull what is still live."
+            : "That job is not in this list."}
+        </p>
+        <Link href={bookStale ? "/connect" : "/opportunities"} className="mt-3 inline-block text-gold">
+          {bookStale ? "Refresh from Shiply" : "Back to jobs"}
         </Link>
       </div>
     );
@@ -58,10 +63,10 @@ export function JobDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link href="/opportunities" className="text-xs text-muted hover:text-text">
-            ← Opportunities
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <Link href="/opportunities" className="text-sm text-muted hover:text-text">
+            ← Jobs
           </Link>
           <h1 className="mt-2 text-2xl font-medium">
             {routeLabel(job.pickupCity, job.deliveryCity)}
@@ -80,17 +85,10 @@ export function JobDetail() {
                 : " · no quotes yet · scored on our lowest"
               : ` · ${job.quoteCount} quotes`}
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <SourceChip source={job.source} />
-            {job.winnerLabels.map((w) => (
-              <WinnerChip key={w} kind={w} />
-            ))}
-            <BandPill band={job.band} />
-          </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="text-[11px] uppercase tracking-wider text-muted">Your score</div>
+            <div className="text-xs uppercase tracking-wider text-muted">Your score</div>
             <ScoreRing score={job.score} band={job.band} size="lg" />
           </div>
           <div className="text-right text-sm">
@@ -102,13 +100,25 @@ export function JobDetail() {
         </div>
       </div>
 
+      <div className="rounded-lg border border-line bg-panel px-2 py-3">
+        <TripDiagram job={job} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <SourceChip source={job.source} />
+        {job.winnerLabels.map((w) => (
+          <WinnerChip key={w} kind={w} />
+        ))}
+        <BandPill band={job.band} />
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <OpenOnMarketplace source={job.source} href={job.listingUrl} />
         <button
           type="button"
           onClick={() => toggleSelected(job.id)}
           className={clsx(
-            "rounded-md px-3 py-1.5 text-sm",
+            "min-h-11 rounded-md px-4 py-2 text-base md:min-h-0 md:px-3 md:py-1.5 md:text-sm",
             selectedIds.includes(job.id) ? "bg-gold text-ink" : "border border-line",
           )}
         >
@@ -117,21 +127,21 @@ export function JobDetail() {
         <button
           type="button"
           onClick={() => toggleSaved(job.id)}
-          className="rounded-md border border-line px-3 py-1.5 text-sm"
+          className="min-h-11 rounded-md border border-line px-4 py-2 text-base md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
         >
           {savedIds.includes(job.id) ? "Saved" : "Save"}
         </button>
         <button
           type="button"
           onClick={() => dismiss(job.id)}
-          className="rounded-md border border-line px-3 py-1.5 text-sm text-muted"
+          className="min-h-11 rounded-md border border-line px-4 py-2 text-base text-muted md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
         >
           Dismiss
         </button>
         {selectedIds.length > 0 ? (
           <Link
             href={`/compare?ids=${[...new Set([job.id, ...selectedIds])].slice(0, 4).join(",")}`}
-            className="rounded-md border border-gold/40 px-3 py-1.5 text-sm text-gold"
+            className="inline-flex min-h-11 items-center rounded-md border border-gold/40 px-4 py-2 text-base text-gold md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
           >
             Open compare
           </Link>
@@ -165,18 +175,21 @@ export function JobDetail() {
         <Metric label="Profit / hour" hint={betterThan(job.percentiles.profitPerHour)}>
           {gbp(job.profitPerHour)}
         </Metric>
-        <Metric label="Dead miles" hint={betterThan(job.percentiles.deadMiles)}>
+        <Metric
+          label="Dead miles"
+          hint={`${deadMilesSplit(job.pickupMiles, job.deliveryToHomeMiles)}. ${betterThan(job.percentiles.deadMiles)}`}
+        >
           {milesLabel(job.deadMiles)}
         </Metric>
       </div>
 
-      <div className="sticky top-14 z-10 -mx-4 border-y border-line bg-ink/95 px-4 backdrop-blur md:-mx-6 md:px-6">
-        <div className="flex gap-1 overflow-x-auto py-2">
+      <div className="md:sticky md:top-14 md:z-10 md:-mx-6 md:border-y md:border-line md:bg-ink/95 md:px-6 md:backdrop-blur">
+        <div className="flex gap-2 overflow-x-auto overscroll-x-contain py-2">
           {(
             [
               ["summary", "Summary"],
-              ["quote", "What-if quote"],
-              ["fit", "Fit & onward"],
+              ["quote", "Quote"],
+              ["fit", "Fit"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -184,8 +197,8 @@ export function JobDetail() {
               type="button"
               onClick={() => setTab(key)}
               className={clsx(
-                "shrink-0 rounded-md px-3 py-1.5 text-sm",
-                tab === key ? "bg-gold text-ink" : "text-muted hover:text-text",
+                "min-h-11 min-w-[5.5rem] shrink-0 rounded-md px-4 py-2 text-base md:min-h-0 md:min-w-0 md:px-3 md:py-1.5 md:text-sm",
+                tab === key ? "bg-gold text-ink" : "border border-line text-muted hover:text-text",
               )}
             >
               {label}
@@ -232,9 +245,6 @@ export function JobDetail() {
                 : "Estimated"}
           </div>
         </div>
-        <div className="mt-4 rounded-md border border-line/70 bg-ink/40 px-2 py-3">
-          <TripDiagram job={job} surface="ink" />
-        </div>
         <ol className="mt-4 space-y-3">
           {job.legs.map((leg) => (
             <li
@@ -247,24 +257,24 @@ export function JobDetail() {
                 </div>
                 <div className="mt-0.5 text-[11px] uppercase tracking-wider text-muted">
                   {leg.kind === "deadhead"
-                    ? "Deadhead to collection"
+                    ? "Empty to collect"
                     : leg.kind === "loaded"
                       ? "Loaded run"
-                      : "After delivery, to home"}
+                      : "Empty home"}
                 </div>
               </div>
               <div className="text-right text-sm tabular">
                 <div>{milesLabel(leg.miles)}</div>
-                <div className="text-xs text-muted">{minutesLabel(leg.minutes)}</div>
+                <div className="text-xs text-muted">{minsLabel(leg.minutes)}</div>
               </div>
             </li>
           ))}
         </ol>
         <p className="mt-4 text-xs text-muted">
-          Working drive {minutesLabel(job.pickupMinutes + job.loadedMinutes)}.
-          Finish is {minutesLabel(job.deliveryToHomeMinutes)} from{" "}
-          {profile.homeLocation.trim() || profile.homeCity}.
-          Direct home from here would be {minutesLabel(job.startToHomeMinutes)}.
+          Working drive {minsLabel(job.pickupMinutes + job.loadedMinutes)}, then{" "}
+          {minsLabel(job.deliveryToHomeMinutes)} empty home to{" "}
+          {profile.homeLocation.trim() || profile.homeCity}. Direct home from
+          here would be {minsLabel(job.startToHomeMinutes)}.
         </p>
       </section>
 
@@ -285,7 +295,11 @@ export function JobDetail() {
             ) : null}
             <Row label="Fuel" value={`− ${gbp(job.costs.fuel)}`} muted />
             <Row label="Vehicle running" value={`− ${gbp(job.costs.vehicle)}`} muted />
-            <Row label="of which dead-mile cost" value={gbp(job.costs.deadMile)} muted />
+            <Row
+              label="of which empty miles (collect + home)"
+              value={gbp(job.costs.deadMile)}
+              muted
+            />
             <Row label="Driver time" value={`− ${gbp(job.costs.driverTime)}`} muted />
             <Row label="Marketplace fees" value={`− ${gbp(job.costs.fees)}`} muted />
             <Row label="Tolls (est.)" value={`− ${gbp(job.costs.tolls)}`} muted />
@@ -320,7 +334,7 @@ export function JobDetail() {
             ))}
           </div>
           <p className="mt-4 text-xs text-muted">
-            Market score {job.marketScore} is quality versus today&apos;s book.
+            Market score {job.marketScore} is quality versus today&apos;s jobs.
             Your score {job.personalScore} is fit for this vehicle, start point
             and targets.
           </p>
@@ -366,7 +380,7 @@ export function JobDetail() {
           <h2 className="text-sm font-medium">Four benchmarks</h2>
           <ul className="mt-3 space-y-3 text-sm">
             <li>
-              <span className="text-muted">Today&apos;s book. </span>
+              <span className="text-muted">Today&apos;s jobs. </span>
               {job.profit >= market.market.medianProfit ? "Produces" : "Produces"}{" "}
               {gbp(Math.abs(job.profit - market.market.medianProfit))}{" "}
               {job.profit >= market.market.medianProfit ? "more" : "less"} than today&apos;s

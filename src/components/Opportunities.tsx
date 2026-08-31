@@ -11,6 +11,8 @@ import {
   loadHeadline,
   loadLabel,
   marketPriceLabel,
+  deadMilesSplit,
+  deadMilesSplitShort,
   milesLabel,
   pickupRadiusLabel,
   routeLabel,
@@ -31,7 +33,7 @@ type SortKey =
   | "pickupMiles";
 
 export function Opportunities() {
-  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile, book } =
+  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile, book, bookStale } =
     useAppState();
   const [search, setSearch] = useState("");
   const [scoreMin, setScoreMin] = useState(0);
@@ -86,20 +88,31 @@ export function Opportunities() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Comparison grid</p>
-          <h1 className="mt-1 text-2xl font-medium">Opportunities</h1>
+          <p className="text-xs uppercase tracking-[0.22em] text-gold">All jobs</p>
+          <h1 className="mt-1 text-2xl font-medium">Jobs</h1>
           <p className="mt-1 text-sm text-muted">
-            {`${rows.length} of ${market.jobs.length} shown${
-              market.market.pickupRadiusMiles > 0
-                ? ` · ${book === "shiply" ? "Shiply search" : "within"} ${pickupRadiusLabel(market.market.pickupRadiusMiles)} of ${book === "shiply" ? market.market.searchLocation : profile.startingCity}`
-                : ""
-            }.${book === "shiply" ? " Change postcode or radius, then Refresh from Shiply." : ""} Select up to four, then compare.`}
+            {book === "shiply" && bookStale ? (
+              <>
+                These Shiply jobs are more than 5 hours old, so they are hidden
+                — they may have left the site.{" "}
+                <Link href="/connect" className="text-gold hover:underline">
+                  Refresh from Shiply
+                </Link>{" "}
+                to pull what is still live.
+              </>
+            ) : (
+              `${rows.length} of ${market.jobs.length} shown${
+                market.market.pickupRadiusMiles > 0
+                  ? ` · ${book === "shiply" ? "Shiply search" : "within"} ${pickupRadiusLabel(market.market.pickupRadiusMiles)} of ${book === "shiply" ? market.market.searchLocation : profile.startingCity}`
+                  : ""
+              }.${book === "shiply" ? " Change postcode or radius, then Refresh from Shiply." : ""} Select up to four, then compare.`
+            )}
           </p>
         </div>
-        <Link
+          <Link
           href={selectedIds.length ? `/compare?ids=${selectedIds.join(",")}` : "/compare"}
           className={clsx(
-            "rounded-md px-3 py-2 text-sm",
+            "inline-flex min-h-11 items-center rounded-md px-4 py-2 text-base md:min-h-0 md:px-3 md:text-sm",
             selectedIds.length
               ? "bg-gold text-ink"
               : "border border-line text-muted",
@@ -114,7 +127,7 @@ export function Opportunities() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search route or load"
-          className="rounded-md border border-line bg-ink px-2 py-1.5 text-sm outline-none focus:border-gold/50 md:col-span-2"
+          className="min-h-11 rounded-md border border-line bg-ink px-3 py-2 text-base outline-none focus:border-gold/50 md:col-span-2 md:min-h-0 md:text-sm"
         />
         <NumFilter label="Score +" value={scoreMin} onChange={setScoreMin} />
         <NumFilter label="Profit £+" value={profitMin} onChange={setProfitMin} />
@@ -128,7 +141,7 @@ export function Opportunities() {
         <select
           value={source}
           onChange={(e) => setSource(e.target.value as JobSource | "all")}
-          className="rounded-md border border-line bg-ink px-2 py-1.5 text-sm"
+          className="min-h-11 rounded-md border border-line bg-ink px-3 py-2 text-base md:min-h-0 md:text-sm"
         >
           <option value="all">All sources</option>
           {JOB_SOURCES.map((name) => (
@@ -137,34 +150,37 @@ export function Opportunities() {
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-2 text-xs text-muted">
+        <label className="flex min-h-11 items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={towardsHome}
             onChange={(e) => setTowardsHome(e.target.checked)}
+            className="h-4 w-4"
           />
           Towards home
         </label>
-        <label className="flex items-center gap-2 text-xs text-muted">
+        <label className="flex min-h-11 items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={hideDismissed}
             onChange={(e) => setHideDismissed(e.target.checked)}
+            className="h-4 w-4"
           />
           Hide dismissed
         </label>
-        <label className="flex items-center gap-2 text-xs text-muted">
+        <label className="flex min-h-11 items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={savedOnly}
             onChange={(e) => setSavedOnly(e.target.checked)}
+            className="h-4 w-4"
           />
           Saved only
         </label>
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className="rounded-md border border-line bg-ink px-2 py-1.5 text-sm md:col-span-2"
+          className="min-h-11 rounded-md border border-line bg-ink px-3 py-2 text-base md:col-span-2 md:min-h-0 md:text-sm"
         >
           <option value="score">Sort: score</option>
           <option value="profit">Sort: profit</option>
@@ -189,7 +205,7 @@ export function Opportunities() {
 
       <div className="hidden overflow-x-auto rounded-lg border border-line md:block">
         <table className="w-full min-w-[980px] text-left text-sm">
-          <thead className="bg-panel-2 text-[11px] uppercase tracking-wider text-muted">
+          <thead className="bg-panel-2 text-xs uppercase tracking-wider text-muted">
             <tr>
               <th className="px-3 py-2 font-medium"> </th>
               <th className="px-3 py-2 font-medium">#</th>
@@ -198,7 +214,12 @@ export function Opportunities() {
               <th className="px-3 py-2 font-medium">Profit</th>
               <th className="px-3 py-2 font-medium">Bid</th>
               <th className="px-3 py-2 font-medium">£/hr</th>
-              <th className="px-3 py-2 font-medium">Dead</th>
+              <th className="px-3 py-2 font-medium">
+                Dead
+                <span className="mt-0.5 block font-normal normal-case tracking-normal text-muted">
+                  collect + home
+                </span>
+              </th>
               <th className="px-3 py-2 font-medium">Time</th>
               <th className="px-3 py-2 font-medium">Onward</th>
               <th className="px-3 py-2 font-medium">Source</th>
@@ -223,7 +244,7 @@ export function Opportunities() {
                     {routeLabel(job.pickupCity, job.deliveryCity)}
                   </Link>
                   <div className="mt-0.5 text-xs text-muted">{loadHeadline(job)}</div>
-                  <div className="mt-2 min-w-[280px] max-w-md">
+                  <div className="mt-2 min-w-[320px] max-w-2xl">
                     <TripDiagram job={job} size="sm" surface="ink" />
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -249,7 +270,12 @@ export function Opportunities() {
                   <MarketplaceBids job={job} />
                 </td>
                 <td className="px-3 py-2 tabular">{gbp(job.profitPerHour)}</td>
-                <td className="px-3 py-2 tabular">{milesLabel(job.deadMiles)}</td>
+                <td className="px-3 py-2 tabular">
+                  <div>{milesLabel(job.deadMiles)}</div>
+                  <div className="mt-0.5 text-xs font-normal normal-case text-muted">
+                    {deadMilesSplit(job.pickupMiles, job.deliveryToHomeMiles)}
+                  </div>
+                </td>
                 <td className="px-3 py-2 tabular">{hoursLabel(job.totalHours)}</td>
                 <td className="px-3 py-2 capitalize text-muted">{job.onward.rating}</td>
                 <td className="px-3 py-2">
@@ -275,12 +301,12 @@ function NumFilter({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] uppercase tracking-wider text-muted">{label}</span>
+      <span className="mb-1 block text-xs uppercase tracking-wider text-muted">{label}</span>
       <input
         type="number"
         value={value}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="w-full rounded-md border border-line bg-ink px-2 py-1.5 text-sm tabular"
+        className="min-h-11 w-full rounded-md border border-line bg-ink px-3 py-2 text-base tabular md:min-h-0 md:text-sm"
       />
     </label>
   );
@@ -301,11 +327,11 @@ function MobileCard({
     <article className="rounded-lg border border-line bg-panel p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] text-muted">#{rank}</div>
-          <Link href={jobPath(job.id)} className="text-base font-medium">
+          <div className="text-sm text-muted">#{rank}</div>
+          <Link href={jobPath(job.id)} className="text-lg font-medium break-words">
             {routeLabel(job.pickupCity, job.deliveryCity)}
           </Link>
-          <div className="mt-0.5 text-xs text-muted">{loadHeadline(job)}</div>
+          <div className="mt-0.5 text-sm text-muted">{loadHeadline(job)}</div>
           <div className="mt-1 flex flex-wrap gap-1">
             <SourceChip source={job.source} />
             {job.winnerLabels.map((w) => (
@@ -320,30 +346,33 @@ function MobileCard({
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
         <div>
-          <div className="text-[11px] text-muted">Profit</div>
+          <div className="text-sm text-muted">Profit</div>
           <div className="tabular text-gold">{gbp(job.profit)}</div>
         </div>
         <div>
-          <div className="text-[11px] text-muted">{marketPriceLabel(job)}</div>
+          <div className="text-sm text-muted">{marketPriceLabel(job)}</div>
           <MarketplaceBids job={job} />
         </div>
         <div>
-          <div className="text-[11px] text-muted">Dead</div>
+          <div className="text-sm text-muted">Dead</div>
           <div className="tabular">{milesLabel(job.deadMiles)}</div>
+          <div className="text-sm text-muted">
+            {deadMilesSplitShort(job.pickupMiles, job.deliveryToHomeMiles)}
+          </div>
         </div>
       </div>
-      <div className="mt-2 text-[11px] text-muted">
+      <div className="mt-2 text-sm text-muted">
         {betterThan(job.percentiles.profitPerHour)} for £/hour
       </div>
       <div className="mt-3">
         <JobFlags job={job} />
       </div>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onToggle}
           className={clsx(
-            "rounded-md border px-2 py-1 text-xs",
+            "min-h-11 rounded-md border px-4 py-2 text-sm",
             selected ? "border-gold text-gold" : "border-line text-muted",
           )}
         >
@@ -351,14 +380,14 @@ function MobileCard({
         </button>
         <Link
           href={jobPath(job.id)}
-          className="rounded-md border border-line px-2 py-1 text-xs text-muted"
+          className="inline-flex min-h-11 items-center rounded-md border border-line px-4 py-2 text-sm text-muted"
         >
           Details
         </Link>
         <OpenOnMarketplace
           source={job.source}
           href={job.listingUrl}
-          className="px-2 py-1 text-xs"
+          className="inline-flex min-h-11 items-center px-4 py-2 text-sm"
         />
       </div>
     </article>

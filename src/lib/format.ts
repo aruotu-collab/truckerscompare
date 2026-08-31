@@ -33,8 +33,27 @@ export function minutesLabel(minutes: number): string {
   return `${h}h ${m}m`;
 }
 
+/** Drive time next to miles — "mins" so it is not read as metres. */
+export function minsLabel(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  if (total < 60) return total === 1 ? "1 min" : `${total} mins`;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m} mins`;
+}
+
 export function milesLabel(n: number): string {
   return `${Math.round(n)} mi`;
+}
+
+/** Empty miles split: collect + home. */
+export function deadMilesSplit(pickupMiles: number, homeMiles: number): string {
+  return `${milesLabel(pickupMiles)} collect + ${milesLabel(homeMiles)} home`;
+}
+
+export function deadMilesSplitShort(pickupMiles: number, homeMiles: number): string {
+  return `${Math.round(pickupMiles)} collect · ${Math.round(homeMiles)} home`;
 }
 
 export function pct(n: number): string {
@@ -87,6 +106,19 @@ export function signedGbp(n: number): string {
 }
 
 export const PICKUP_RADIUS_OPTIONS = [10, 25, 40, 80, 0] as const;
+
+/** A Shiply book older than this is treated as gone — listings may have left the site. */
+export const SHIPLY_BOOK_MAX_AGE_MS = 5 * 60 * 60 * 1000;
+
+export function isShiplyBookFresh(
+  lastSyncedAt: string | null | undefined,
+  now = Date.now(),
+): boolean {
+  if (!lastSyncedAt) return false;
+  const at = Date.parse(lastSyncedAt);
+  if (!Number.isFinite(at)) return false;
+  return now - at < SHIPLY_BOOK_MAX_AGE_MS;
+}
 
 export function pickupRadiusLabel(miles: number): string {
   return miles > 0 ? `${miles} miles` : "Any distance";

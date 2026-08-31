@@ -1,4 +1,10 @@
-import { costJob, fulfilmentCost, suggestedQuoteFor, type JobScenario } from "./costs";
+import {
+  costJob,
+  fuelPencePerMile,
+  fulfilmentCost,
+  suggestedQuoteFor,
+  type JobScenario,
+} from "./costs";
 import { generateDemoJobs } from "./demo-jobs";
 import { roadMiles, roadMinutes } from "./geo";
 import type {
@@ -25,10 +31,10 @@ export function getRawJobs(): RawJob[] {
 
 export function analyseMarket(
   profile: OperatorProfile,
-  rawJobs: RawJob[] = RAW_JOBS,
+  rawJobs?: RawJob[],
   options: { applyPickupRadius?: boolean } = {},
 ): AnalysedMarket {
-  const book = rawJobs.length > 0 ? rawJobs : RAW_JOBS;
+  const book = rawJobs === undefined ? RAW_JOBS : rawJobs;
   const costed = book.map((job) => {
     const suggestedQuote = suggestedQuoteFor(job, profile);
     const quote = job.revenue > 0 ? job.revenue : suggestedQuote;
@@ -191,7 +197,7 @@ function personalScoreOf(
 ): { personalScore: number; factors: ScoreFactor[] } {
   const profit = clamp(scale(economics.profit, 80, 620) * 25, 0, 25);
   const perHour = clamp(scale(economics.profitPerHour, 18, 85) * 20, 0, 20);
-  const dead = clamp((1 - scale(economics.deadMiles, 4, 90)) * 15, 0, 15);
+  const dead = clamp((1 - scale(economics.deadMiles, 8, 160)) * 15, 0, 15);
   const route = economics.routeFit;
   const vehicle = economics.vehicleFit;
   const schedule = economics.scheduleFit;
@@ -226,7 +232,7 @@ function personalScoreOf(
       label: "Dead-mile efficiency",
       score: round1(dead),
       max: 15,
-      note: "Empty running from your current position to collection",
+      note: "Empty miles to collect plus empty miles home after drop",
     },
     {
       key: "route",
@@ -288,7 +294,7 @@ function flagsOf(
 ): Flag[] {
   const flags: Flag[] = [];
   if (economics.profitPerHour >= 70) flags.push({ kind: "strength", label: "Top-tier £/hour" });
-  if (economics.deadMiles <= 12) flags.push({ kind: "strength", label: "Very low dead miles" });
+  if (economics.deadMiles <= 16) flags.push({ kind: "strength", label: "Very low dead miles" });
   if (economics.towardsHomeMiles >= 40)
     flags.push({ kind: "strength", label: "Takes you towards home" });
   if (onward.rating === "excellent")
@@ -298,7 +304,7 @@ function flagsOf(
   if (economics.vehicleFit >= 8) flags.push({ kind: "strength", label: "Correct vehicle" });
   if (band === "exceptional") flags.push({ kind: "strength", label: "Exceptional book quality" });
 
-  if (economics.deadMiles >= 55) flags.push({ kind: "risk", label: `${Math.round(economics.deadMiles)} dead miles` });
+  if (economics.deadMiles >= 70) flags.push({ kind: "risk", label: `${Math.round(economics.deadMiles)} dead miles` });
   if (economics.margin < 0.28) flags.push({ kind: "risk", label: "Low estimated margin" });
   if (competition === "high") flags.push({ kind: "risk", label: "High competition" });
   if (job.collectionWindow.includes("06:00")) flags.push({ kind: "risk", label: "Early collection" });
@@ -345,11 +351,19 @@ function findCombinations(
       const b = usable[j]!;
       const gap = roadMiles(a.deliveryCity, b.pickupCity);
       if (gap > 28) continue;
-      const hours = a.totalHours + b.totalHours + roadMinutes(a.deliveryCity, b.pickupCity) / 60;
+      const homeCostA =
+        a.deliveryToHomeMiles *
+          (fuelPencePerMile(profile) + profile.runningCostPerMile) +
+        (a.deliveryToHomeMinutes / 60) * profile.driverHourlyCost;
+      const hours =
+        a.totalHours -
+        a.deliveryToHomeMinutes / 60 +
+        b.totalHours +
+        roadMinutes(a.deliveryCity, b.pickupCity) / 60;
       if (hours > profile.workingHours + 1.25) continue;
       const extraDeadCost = gap * (0.35 + profile.runningCostPerMile);
-      const profit = a.profit + b.profit - extraDeadCost;
-      const deadMiles = a.deadMiles + gap;
+      const profit = a.profit + homeCostA + b.profit - extraDeadCost;
+      const deadMiles = a.pickupMiles + gap + b.deliveryToHomeMiles;
       const score = clamp(
         Math.round(
           55 +
@@ -367,7 +381,7 @@ function findCombinations(
         label: `${a.pickupCity} → ${a.deliveryCity} → ${b.deliveryCity}`,
         gapMiles: gap,
         revenue: a.revenue + b.revenue,
-        costs: round2(a.costs.total + b.costs.total + extraDeadCost),
+        costs: round2(a.costs.total - homeCostA + b.costs.total + extraDeadCost),
         profit: round2(profit),
         hours: round2(hours),
         profitPerHour: round2(profit / hours),

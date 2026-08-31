@@ -14,16 +14,16 @@ export function MarketplaceBids({
     return (
       <div>
         <div className="tabular">{gbp(workingBid(job))}</div>
-        <div className="text-[11px] text-muted">Our lowest · no quotes yet</div>
+        <div className="text-xs text-muted">Our lowest · no quotes yet</div>
       </div>
     );
   }
   return (
     <div>
       <div className="tabular">{gbp(job.revenue)}</div>
-      {high ? <div className="text-[11px] text-muted">Highest {gbp(high)}</div> : null}
+      {high ? <div className="text-xs text-muted">Highest {gbp(high)}</div> : null}
       {job.source === "Shiply" ? (
-        <div className="text-[11px] text-muted">{job.quoteCount} quotes</div>
+        <div className="text-xs text-muted">{job.quoteCount} quotes</div>
       ) : null}
     </div>
   );
@@ -45,7 +45,7 @@ export function OpenOnMarketplace({
       target="_blank"
       rel="noopener noreferrer"
       className={clsx(
-        "rounded-md bg-gold px-3 py-1.5 text-sm text-ink hover:opacity-90",
+        "inline-flex min-h-11 items-center rounded-md bg-gold px-4 py-2 text-base text-ink hover:opacity-90 md:min-h-0 md:px-3 md:py-1.5 md:text-sm",
         className,
       )}
     >
@@ -125,7 +125,7 @@ export function BandPill({ band }: { band: ScoreBand }) {
             ? "text-amber-400 border-amber-400/25 bg-amber-400/10"
             : "text-bad border-bad/30 bg-bad/10";
   return (
-    <span className={clsx("rounded-full border px-2 py-0.5 text-[11px] tracking-wide uppercase", tone)}>
+    <span className={clsx("rounded-full border px-2 py-0.5 text-xs tracking-wide uppercase", tone)}>
       {bandLabel(band)}
     </span>
   );
@@ -141,7 +141,7 @@ export function SourceChip({
   return (
     <span
       className={clsx(
-        "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+        "rounded-sm border px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider",
         sourceChipClass(source),
         className,
       )}
@@ -153,7 +153,7 @@ export function SourceChip({
 
 export function WinnerChip({ kind }: { kind: WinnerKind }) {
   return (
-    <span className="rounded-sm bg-gold/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-gold">
+    <span className="rounded-sm bg-gold/15 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider text-gold">
       {winnerLabel(kind)}
     </span>
   );
@@ -182,9 +182,9 @@ export function Metric({
 }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-wider text-muted">{label}</div>
-      <div className="mt-1 text-base tabular">{children}</div>
-      {hint ? <div className="mt-0.5 text-[11px] text-muted">{hint}</div> : null}
+      <div className="text-sm uppercase tracking-wider text-muted md:text-xs">{label}</div>
+      <div className="mt-1 text-lg tabular">{children}</div>
+      {hint ? <div className="mt-0.5 text-sm text-muted md:text-xs">{hint}</div> : null}
     </div>
   );
 }
@@ -196,7 +196,7 @@ export function JobFlags({ job }: { job: AnalysedJob }) {
         <span
           key={flag.label}
           className={clsx(
-            "rounded-sm px-1.5 py-0.5 text-[11px]",
+            "rounded-sm px-1.5 py-0.5 text-xs",
             flag.kind === "strength"
               ? "bg-good/10 text-good"
               : "bg-bad/10 text-bad",

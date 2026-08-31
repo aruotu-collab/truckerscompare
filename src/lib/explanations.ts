@@ -1,4 +1,4 @@
-import { gbp, hoursLabel, milesLabel, num, routeLabel } from "./format";
+import { deadMilesSplit, gbp, hoursLabel, milesLabel, num, routeLabel } from "./format";
 import type { AnalysedJob, CombinationPlan } from "./types";
 
 export function intelligenceSummary(job: AnalysedJob): string {
@@ -27,7 +27,8 @@ export function whyStrengths(job: AnalysedJob): string[] {
   const out: string[] = [];
   if (job.percentiles.profitPerHour >= 90)
     out.push(`Top ${100 - job.percentiles.profitPerHour}% profit/hour`);
-  if (job.deadMiles <= 12) out.push(`Only ${Math.round(job.deadMiles)} dead miles`);
+  if (job.deadMiles <= 16)
+    out.push(`Only ${Math.round(job.deadMiles)} dead miles (${deadMilesSplit(job.pickupMiles, job.deliveryToHomeMiles)})`);
   if (job.pickupMiles <= 10) out.push(`Pickup only ${Math.round(job.pickupMiles)} miles away`);
   if (job.vehicleFit >= 8) out.push("Excellent vehicle fit");
   if (job.onward.rating === "excellent" || job.onward.rating === "good")
@@ -44,7 +45,8 @@ export function whyWeaknesses(job: AnalysedJob): string[] {
   if (job.collectionWindow.toLowerCase().includes("06:00")) out.push("Early collection");
   if (job.percentiles.profit < 55) out.push("Revenue / profit below today's best-paid work");
   if (job.weightKg == null) out.push("Weight information incomplete");
-  if (job.deadMiles >= 40) out.push(`${Math.round(job.deadMiles)} dead miles to reach collection`);
+  if (job.deadMiles >= 40)
+    out.push(`${Math.round(job.deadMiles)} dead miles (${deadMilesSplit(job.pickupMiles, job.deliveryToHomeMiles)})`);
   if (job.onward.rating === "poor") out.push("Destination has weak onward work");
   if (job.competition === "high") out.push("Quote activity is already high");
   if (job.vsMinProfit < 0) out.push("Below your minimum profit");

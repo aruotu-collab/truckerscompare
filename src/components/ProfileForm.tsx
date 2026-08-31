@@ -22,12 +22,15 @@ export function ProfileForm() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Your economics</p>
-        <h1 className="mt-1 text-2xl font-medium">Vehicle & costs</h1>
+        <p className="text-xs uppercase tracking-[0.22em] text-gold">Your numbers</p>
+        <h1 className="mt-1 text-2xl font-medium">Costs</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Every rank on this site is personal. Change fuel, home or starting
-          city and the whole book is re-costed immediately — that is the
-          product, not a prettier marketplace table.
+          Fuel, vehicle and targets used to rank every job. Change a figure and
+          profit updates at once. Search postcode and radius are also on{" "}
+          <Link href="/connect#where-you-are" className="text-gold hover:underline">
+            Shiply
+          </Link>
+          .
         </p>
       </div>
 
@@ -224,7 +227,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-muted">
+      <span className="mb-1.5 block text-sm uppercase tracking-wider text-muted md:text-xs">
         {label}
       </span>
       {children}
@@ -251,4 +254,4 @@ function CitySelect({
 }
 
 const inputClass =
-  "w-full rounded-md border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-gold/50";
+  "min-h-11 w-full rounded-md border border-line bg-ink px-3 py-2 text-base outline-none focus:border-gold/50 md:text-sm";

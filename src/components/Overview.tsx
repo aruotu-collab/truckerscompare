@@ -12,6 +12,7 @@ import {
   jobPath,
   loadHeadline,
   marketPriceLabel,
+  deadMilesSplitShort,
   milesLabel,
   pickupRadiusLabel,
   routeLabel,
@@ -23,7 +24,7 @@ import { TripDiagram } from "./TripDiagram";
 import { BandPill, MarketplaceBids, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
 export function Overview() {
-  const { market, book } = useAppState();
+  const { market, book, bookStale } = useAppState();
   const { winners, market: summary, actNow, consider, combinations } = market;
   const comboA = winners.bestCombination
     ? jobById(market.jobs, winners.bestCombination.jobAId)
@@ -35,19 +36,27 @@ export function Overview() {
       <div>
         <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Today&apos;s market</p>
         <h1 className="mt-1 text-2xl font-medium tracking-tight">
-          {summary.analysed} opportunities analysed
+          {summary.analysed} jobs analysed
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          {book === "shiply" ? (
+          {book === "shiply" && bookStale ? (
             <>
-              This book is the last Shiply Local search: collections within{" "}
+              These Shiply jobs are more than 5 hours old, so they are hidden —
+              those listings may have left the site.{" "}
+              <Link href="/connect" className="text-gold hover:underline">
+                Refresh from Shiply
+              </Link>{" "}
+              to pull what is still live.
+            </>
+          ) : book === "shiply" ? (
+            <>
+              These jobs are from the last Shiply search: collections within{" "}
               {pickupRadiusLabel(summary.pickupRadiusMiles).toLowerCase()} of{" "}
-              {summary.searchLocation}. Starting city {summary.startingCity} is
-              for costing. Home is {summary.homeLocation}. Refresh to apply a new
-              postcode or radius.{" "}
+              {summary.searchLocation}. Home is {summary.homeLocation}. Refresh
+              on Shiply to apply a new postcode or radius.{" "}
               {summary.analysed === 0
                 ? "Shiply returned nothing for those terms."
-                : `The book is ${summary.qualityLabel.toLowerCase()}.`}
+                : `The list looks ${summary.qualityLabel.toLowerCase()}.`}
             </>
           ) : (
             <>
@@ -59,7 +68,7 @@ export function Overview() {
                 : null}
               {summary.analysed === 0
                 ? "Nothing in range — widen the radius or change starting city."
-                : `The book is ${summary.qualityLabel.toLowerCase()}. Miles are UK road distances, not crow-flies. Start with the winners.`}
+                : `The list looks ${summary.qualityLabel.toLowerCase()}. Miles are UK road distances, not crow-flies. Start with the winners.`}
             </>
           )}
         </p>
@@ -76,7 +85,7 @@ export function Overview() {
           ] as const
         ).map(([label, n]) => (
           <div key={label} className="rounded-lg border border-line bg-panel px-3 py-3">
-            <div className="text-[11px] uppercase tracking-wider text-muted">{label}</div>
+            <div className="text-xs uppercase tracking-wider text-muted">{label}</div>
             <div className="mt-1 text-2xl tabular">{n}</div>
           </div>
         ))}
@@ -107,13 +116,13 @@ export function Overview() {
           <p className="mt-2 text-3xl tabular text-muted">{market.ignoreCount}</p>
           <p className="mt-2 text-sm text-muted">
             Remaining jobs are average or worse for this vehicle and starting
-            point. Open the grid only if you want to hunt edge cases.
+            point. Open Jobs if you want to hunt edge cases.
           </p>
           <Link
             href="/opportunities"
             className="mt-4 inline-block text-sm text-gold hover:underline"
           >
-            Open full comparison grid
+            See all jobs
           </Link>
         </div>
       </section>
@@ -140,7 +149,7 @@ function WinnerJobCard({
   if (!job) {
     return (
       <div className="rounded-lg border border-line bg-panel p-4 text-sm text-muted">
-        No {winnerLabel(kind).toLowerCase()} in this book.
+        No {winnerLabel(kind).toLowerCase()} in this list.
       </div>
     );
   }
@@ -157,7 +166,7 @@ function WinnerJobCard({
               {routeLabel(job.pickupCity, job.deliveryCity)}
             </div>
             <div className="mt-1 text-sm">{loadHeadline(job)}</div>
-            <div className="mt-1 text-xs text-muted">{job.category}</div>
+            <div className="mt-1 text-sm text-muted">{job.category}</div>
           </div>
           <ScoreRing score={job.score} band={job.band} />
         </div>
@@ -166,23 +175,26 @@ function WinnerJobCard({
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           <div>
-            <div className="text-[11px] text-muted">Profit</div>
+            <div className="text-sm text-muted">Profit</div>
             <Money value={job.profit} className="text-gold" />
           </div>
           <div>
-            <div className="text-[11px] text-muted">£/hour</div>
+            <div className="text-sm text-muted">£/hour</div>
             <span className="tabular">{gbp(job.profitPerHour)}</span>
           </div>
           <div>
-            <div className="text-[11px] text-muted">Dead</div>
+            <div className="text-sm text-muted">Dead</div>
             <span className="tabular">{milesLabel(job.deadMiles)}</span>
+            <div className="text-sm text-muted">
+              {deadMilesSplitShort(job.pickupMiles, job.deliveryToHomeMiles)}
+            </div>
           </div>
           <div>
-            <div className="text-[11px] text-muted">{marketPriceLabel(job)}</div>
+            <div className="text-sm text-muted">{marketPriceLabel(job)}</div>
             <MarketplaceBids job={job} />
           </div>
         </div>
-        <div className="mt-3 text-[11px] text-muted">
+        <div className="mt-3 text-sm text-muted">
           {kind === "towards_home"
             ? `Closes ${milesLabel(job.towardsHomeMiles)} of the journey home`
             : betterThan(job.percentiles.personalScore)}
@@ -211,7 +223,7 @@ function WinnerComboCard({
   if (!plan) {
     return (
       <div className="rounded-lg border border-line bg-panel p-4 text-sm text-muted">
-        No compatible two-job chain in this book.
+        No compatible two-job chain in this list.
       </div>
     );
   }
@@ -224,19 +236,19 @@ function WinnerComboCard({
       <div className="mt-2 text-base font-medium">{plan.label}</div>
       <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
         <div>
-          <div className="text-[11px] text-muted">Profit</div>
+          <div className="text-sm text-muted">Profit</div>
           <span className="tabular text-gold">{gbp(plan.profit)}</span>
         </div>
         <div>
-          <div className="text-[11px] text-muted">£/hour</div>
+          <div className="text-sm text-muted">£/hour</div>
           <span className="tabular">{gbp(plan.profitPerHour)}</span>
         </div>
         <div>
-          <div className="text-[11px] text-muted">Time</div>
+          <div className="text-sm text-muted">Time</div>
           <span className="tabular">{hoursLabel(plan.hours)}</span>
         </div>
       </div>
-      <p className="mt-3 line-clamp-3 text-[11px] text-muted">{why}</p>
+      <p className="mt-3 line-clamp-3 text-sm text-muted">{why}</p>
     </Link>
   );
 }
@@ -267,11 +279,11 @@ function Bucket({
                     </span>
                     <span className="tabular text-sm text-muted">{job.score}</span>
                   </div>
-                  <div className="mt-0.5 text-[11px] text-muted">{loadHeadline(job)}</div>
+                  <div className="mt-0.5 text-sm text-muted">{loadHeadline(job)}</div>
                   <div className="mt-2">
                     <TripDiagram job={job} size="sm" />
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
                     <SourceChip source={job.source} />
                     <BandPill band={job.band} />
                     <span className="tabular">{gbp(job.profit)} profit</span>

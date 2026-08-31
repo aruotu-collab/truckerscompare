@@ -237,6 +237,10 @@ export async function extractVisibleJobs(
 ): Promise<ShiplyExtract> {
   if (isShiplyLogin(page)) throw new ShiplyAuthRequired();
 
+  // Live sign-in can use a phone viewport so the hosted window is usable.
+  // Widen before scrape so Local search and listing tables stay desktop-shaped.
+  await page.setViewportSize({ width: 1024, height: 768 }).catch(() => undefined);
+
   await page.goto(SEARCH_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
   await waitForShiplyReady(page);
   if (isShiplyLogin(page)) throw new ShiplyAuthRequired();

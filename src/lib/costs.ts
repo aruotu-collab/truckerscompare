@@ -108,20 +108,22 @@ export function costJob(
   const loadedMiles = loaded.miles;
   const deliveryToHomeMiles = home.miles;
   const startToHomeMiles = roadMiles(startPlace, homePlace);
-  const deadMiles = pickupMiles;
-  const totalMiles = pickupMiles + loadedMiles;
+  const emptyMiles = pickupMiles + deliveryToHomeMiles;
+  const deadMiles = emptyMiles;
+  const totalMiles = pickupMiles + loadedMiles + deliveryToHomeMiles;
   const pickupMinutes = deadhead.minutes;
   const loadedMinutes = loaded.minutes;
   const deliveryToHomeMinutes = home.minutes;
   const startToHomeMinutes = roadMinutes(startPlace, homePlace);
   const handling = (job.loadingMinutesKnown ? LOADING_MINUTES : 55) + UNLOADING_MINUTES;
   const waitingMinutes = Math.max(0, scenario.waitingMinutes ?? 0);
-  const totalHours = (pickupMinutes + loadedMinutes + handling + waitingMinutes) / 60;
+  const totalHours =
+    (pickupMinutes + loadedMinutes + deliveryToHomeMinutes + handling + waitingMinutes) / 60;
 
   const fuelPerMile = fuelPencePerMile(priced);
   const fuel = totalMiles * fuelPerMile;
   const vehicle = totalMiles * priced.runningCostPerMile;
-  const deadMile = deadMiles * (fuelPerMile + priced.runningCostPerMile);
+  const deadMile = emptyMiles * (fuelPerMile + priced.runningCostPerMile);
   const driverTime = totalHours * priced.driverHourlyCost;
   const fees = quote * (priced.marketplaceFeePercent / 100);
   const tolls = estimateTolls(loadedMiles, job.pickupCity, job.deliveryCity) + Math.max(0, scenario.extraTolls ?? 0);
@@ -160,7 +162,7 @@ export function costJob(
     job.pickupCity,
     job.deliveryCity,
     towardsHomeMiles,
-    deadMiles,
+    pickupMiles,
     loadedMiles,
   );
 
@@ -196,21 +198,21 @@ function routeFitScore(
   pickup: string,
   delivery: string,
   towardsHome: number,
-  deadMiles: number,
+  collectMiles: number,
   loadedMiles: number,
 ): number {
   let score = 6;
-  if (deadMiles <= 12) score += 2;
-  else if (deadMiles <= 25) score += 1;
-  else if (deadMiles > 70) score -= 3;
-  else if (deadMiles > 40) score -= 1;
+  if (collectMiles <= 12) score += 2;
+  else if (collectMiles <= 25) score += 1;
+  else if (collectMiles > 70) score -= 3;
+  else if (collectMiles > 40) score -= 1;
   if (towardsHome >= 40) score += 2;
   else if (towardsHome >= 10) score += 1;
   else if (towardsHome < -80) score -= 2;
   if (pickup === start) score += 1;
   if (delivery === home) score += 1;
 
-  const deadRatio = loadedMiles > 0 ? deadMiles / loadedMiles : 1;
+  const deadRatio = loadedMiles > 0 ? collectMiles / loadedMiles : 1;
   if (deadRatio <= 0.15) score += 1;
   else if (deadRatio > 0.85) score -= 1;
 

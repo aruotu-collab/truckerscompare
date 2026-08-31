@@ -22,7 +22,10 @@ export async function createShiplyContext(userId: string) {
   return context.id;
 }
 
-export async function createPersistedSession(contextId: string) {
+export async function createPersistedSession(
+  contextId: string,
+  options?: { mobile?: boolean },
+) {
   const bb = getBrowserbase();
   const projectId = process.env.BROWSERBASE_PROJECT_ID || undefined;
   const base = {
@@ -31,7 +34,9 @@ export async function createPersistedSession(contextId: string) {
     api_timeout: 900,
     browserSettings: {
       solveCaptchas: true,
-      viewport: { width: 1024, height: 768 },
+      viewport: options?.mobile
+        ? { width: 390, height: 844 }
+        : { width: 1024, height: 768 },
       context: {
         id: contextId,
         persist: true,

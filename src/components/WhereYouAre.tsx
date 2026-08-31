@@ -21,7 +21,7 @@ export function PickupRadius({
 }) {
   return (
     <div>
-      <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-muted">
+      <span className="mb-1.5 block text-sm uppercase tracking-wider text-muted md:text-xs">
         How far you will go for a collection
       </span>
       <div className="flex flex-wrap gap-2">
@@ -33,7 +33,7 @@ export function PickupRadius({
               type="button"
               onClick={() => onChange(miles)}
               className={clsx(
-                "rounded-md px-2.5 py-1.5 text-sm",
+                "min-h-11 rounded-md px-3 py-2 text-base md:min-h-0 md:px-2.5 md:py-1.5 md:text-sm",
                 active
                   ? "bg-gold text-ink"
                   : "border border-line text-muted hover:border-gold/40 hover:text-text",
@@ -56,8 +56,8 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
       id="where-you-are"
       className="rounded-lg border border-gold/25 bg-panel p-4 text-sm"
     >
-      <p className="text-[11px] uppercase tracking-[0.22em] text-gold">Where you are</p>
-      <h2 className="mt-1 text-base font-medium">
+      <p className="text-sm uppercase tracking-[0.22em] text-gold md:text-xs">Where you are</p>
+      <h2 className="mt-1 text-base font-medium break-words">
         Search {searchPlaceLabel(profile)} · {pickupRadiusLabel(profile.maxDeadMiles)} ·
         Start {profile.startingCity} · Home {homePlaceLabel(profile)}
       </h2>
@@ -98,13 +98,13 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
           />
         </div>
         <label className="block">
-          <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
+          <span className="mb-1 block text-sm uppercase tracking-wider text-muted md:text-xs">
             Where you are now — nearest city
           </span>
           <select
             value={profile.startingCity}
             onChange={(e) => setProfile({ ...profile, startingCity: e.target.value })}
-            className="w-full rounded-md border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-gold/50"
+            className="min-h-11 w-full rounded-md border border-line bg-ink px-3 py-2 text-base outline-none focus:border-gold/50 md:text-sm"
           >
             {CITIES.map((city) => (
               <option key={city.name} value={city.name}>
@@ -114,13 +114,13 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-[11px] uppercase tracking-wider text-muted">
+          <span className="mb-1 block text-sm uppercase tracking-wider text-muted md:text-xs">
             Home — nearest city
           </span>
           <select
             value={profile.homeCity}
             onChange={(e) => setProfile({ ...profile, homeCity: e.target.value })}
-            className="w-full rounded-md border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-gold/50"
+            className="min-h-11 w-full rounded-md border border-line bg-ink px-3 py-2 text-base outline-none focus:border-gold/50 md:text-sm"
           >
             {CITIES.map((city) => (
               <option key={city.name} value={city.name}>
@@ -136,10 +136,11 @@ export function WhereYouAre({ compact = false }: { compact?: boolean }) {
           onChange={(miles) => setProfile({ ...profile, maxDeadMiles: miles })}
         />
       </div>
-      <p className="mt-3 text-xs text-muted">
-        Change takes effect on the next rank. Fuel, vehicle and targets stay on{" "}
-        <Link href="/profile#where-you-are" className="text-gold hover:underline">
-          Vehicle & costs
+      <p className="mt-3 text-sm text-muted md:text-xs">
+        A new Shiply refresh uses this postcode and radius. Fuel, vehicle and
+        profit targets are on{" "}
+        <Link href="/profile" className="text-gold hover:underline">
+          Costs
         </Link>
         .
       </p>

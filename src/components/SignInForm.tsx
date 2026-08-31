@@ -155,7 +155,7 @@ export function SignInForm() {
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         placeholder="you@company.co.uk"
-        className="mt-2 w-full rounded-md border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-gold"
+        className="mt-2 min-h-11 w-full rounded-md border border-line bg-ink px-3 py-2 text-base outline-none focus:border-gold md:text-sm"
       />
       {error ? <p className="mt-3 text-sm text-bad">{error}</p> : null}
       {!configured ? (
@@ -166,7 +166,7 @@ export function SignInForm() {
       <button
         type="submit"
         disabled={sending || !configured}
-        className="mt-4 rounded-md bg-gold px-3 py-1.5 text-sm text-ink disabled:opacity-50"
+        className="mt-4 min-h-12 w-full rounded-md bg-gold px-4 py-3 text-base text-ink disabled:opacity-50 sm:w-auto md:min-h-0 md:px-3 md:py-1.5 md:text-sm"
       >
         {sending ? "Sending link…" : "Email me a sign-in link"}
       </button>

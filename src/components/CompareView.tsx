@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useAppState } from "@/context/AppState";
 import { compareTradeoff, vsHeadline } from "@/lib/explanations";
-import { gbp, hasMarketBid, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minutesLabel, routeLabel, workingBid } from "@/lib/format";
+import { deadMilesSplit, gbp, hasMarketBid, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minsLabel, routeLabel, workingBid } from "@/lib/format";
 import type { AnalysedJob } from "@/lib/types";
 import { clsx } from "./clsx";
 import { TripDiagram } from "./TripDiagram";
@@ -13,7 +13,7 @@ import { BandPill, OpenOnMarketplace, ScoreRing, SourceChip } from "./ui";
 
 export function CompareView() {
   const params = useSearchParams();
-  const { market, selectedIds, selectMany, clearSelected } = useAppState();
+  const { market, selectedIds, selectMany, clearSelected, bookStale } = useAppState();
   const fromQuery = (params.get("ids") ?? "")
     .split(",")
     .map((s) => s.trim())
@@ -32,12 +32,20 @@ export function CompareView() {
       <div className="space-y-4">
         <h1 className="text-2xl font-medium">Compare</h1>
         <p className="max-w-xl text-sm text-muted">
-          Select two to four opportunities from the grid. Side-by-side is a
-          flagship feature — the point is the trade-off, not a second table of
-          the same numbers.
+          {bookStale ? (
+            <>
+              These Shiply jobs are more than 5 hours old, so they are hidden.
+              Refresh to compare what is still live.
+            </>
+          ) : (
+            <>
+              Select two to four jobs on the Jobs page, then come back here to
+              see the trade-off.
+            </>
+          )}
         </p>
-        <Link href="/opportunities" className="inline-block text-gold">
-          Choose jobs to compare
+        <Link href={bookStale ? "/connect" : "/opportunities"} className="inline-block text-gold">
+          {bookStale ? "Refresh from Shiply" : "Choose jobs to compare"}
         </Link>
       </div>
     );
@@ -53,10 +61,10 @@ export function CompareView() {
           <p className="text-[11px] uppercase tracking-[0.22em] text-gold">
             {isVs ? "Head to head" : "Side by side"}
           </p>
-          <h1 className="mt-1 text-2xl font-medium">
+          <h1 className="mt-1 text-xl font-medium break-words md:text-2xl">
             {isVs
               ? `${jobs[0]!.pickupCity} → ${jobs[0]!.deliveryCity}  vs  ${jobs[1]!.pickupCity} → ${jobs[1]!.deliveryCity}`
-              : `${jobs.length} opportunities`}
+              : `${jobs.length} jobs`}
           </h1>
         </div>
         <button type="button" onClick={clearSelected} className="text-sm text-muted hover:text-text">
@@ -64,9 +72,49 @@ export function CompareView() {
         </button>
       </div>
 
-      {isVs ? <VsPanel a={jobs[0]!} b={jobs[1]!} winnerId={winner.id} /> : null}
+      {isVs ? <VsPanel a={jobs[0]!} b={jobs[1]!} winnerId={winner.id} /> : (
+        <div className="space-y-3 md:hidden">
+          {jobs.map((job) => (
+            <div key={job.id} className="rounded-lg border border-line bg-panel p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium break-words">
+                    {routeLabel(job.pickupCity, job.deliveryCity)}
+                  </div>
+                  <div className="mt-0.5 text-sm text-muted">{loadHeadline(job)}</div>
+                </div>
+                <BandPill band={job.band} />
+              </div>
+              <div className="mt-3">
+                <TripDiagram job={job} size="sm" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div className="overflow-x-auto rounded-lg border border-line">
+      <div className="space-y-2 md:hidden">
+        {rows(jobs).map((row) => (
+          <div key={row.label} className="rounded-lg border border-line bg-panel px-3 py-3">
+            <div className="text-sm text-muted">{row.label}</div>
+            <div className="mt-2 space-y-1.5 text-base">
+              {row.values.map((cell, i) => (
+                <div
+                  key={jobs[i]!.id}
+                  className={clsx("flex justify-between gap-3", cell.best && "text-gold")}
+                >
+                  <span className="min-w-0 break-words text-sm text-muted">
+                    {routeLabel(jobs[i]!.pickupCity, jobs[i]!.deliveryCity)}
+                  </span>
+                  <span className="shrink-0 tabular">{cell.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto overscroll-x-contain rounded-lg border border-line md:block">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-panel-2">
             <tr>
@@ -158,7 +206,7 @@ function VsPanel({
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">{routeLabel(job.pickupCity, job.deliveryCity)}</div>
-              <div className="mt-0.5 text-xs text-muted">{loadHeadline(job)}</div>
+              <div className="mt-0.5 text-sm text-muted">{loadHeadline(job)}</div>
               <div className="mt-2">
                 <SourceChip source={job.source} />
               </div>
@@ -235,13 +283,13 @@ function rows(jobs: AnalysedJob[]) {
     ),
     pack(
       "Dead miles",
-      jobs.map((j) => milesLabel(j.deadMiles)),
+      jobs.map((j) => `${milesLabel(j.deadMiles)} · ${deadMilesSplit(j.pickupMiles, j.deliveryToHomeMiles)}`),
       best(jobs.map((j) => j.deadMiles), false),
     ),
     pack(
-      "Deadhead time",
-      jobs.map((j) => minutesLabel(j.pickupMinutes)),
-      best(jobs.map((j) => j.pickupMinutes), false),
+      "Empty time",
+      jobs.map((j) => minsLabel(j.pickupMinutes + j.deliveryToHomeMinutes)),
+      best(jobs.map((j) => j.pickupMinutes + j.deliveryToHomeMinutes), false),
     ),
     pack(
       "Total miles",
@@ -254,8 +302,8 @@ function rows(jobs: AnalysedJob[]) {
       best(jobs.map((j) => j.totalHours), false),
     ),
     pack(
-      "Finish to home",
-      jobs.map((j) => `${milesLabel(j.deliveryToHomeMiles)} · ${minutesLabel(j.deliveryToHomeMinutes)}`),
+      "Empty home",
+      jobs.map((j) => `${milesLabel(j.deliveryToHomeMiles)} · ${minsLabel(j.deliveryToHomeMinutes)}`),
       best(jobs.map((j) => j.deliveryToHomeMiles), false),
     ),
     pack(
