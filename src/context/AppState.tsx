@@ -159,7 +159,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           setProfileSave("saved");
           return;
         }
-        await upsertRemoteProfile(user.id, profileRef.current);
+        await upsertRemoteProfile(user.id, profileRef.current, user.email);
         if (!cancelled) setProfileSave("saved");
       })
       .then(async () => {
@@ -226,7 +226,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setProfileSave("saving");
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
-      upsertRemoteProfile(user.id, next)
+      upsertRemoteProfile(user.id, next, user.email)
         .then(() => setProfileSave("saved"))
         .catch(() => setProfileSave("error"));
     }, 600);

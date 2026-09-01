@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppState } from "@/context/AppState";
 import { useAuth } from "@/context/Auth";
+import { isAdminEmail } from "@/lib/admin";
 import { displayNameFromEmail } from "@/lib/auth";
 import { homePlaceLabel, pickupRadiusLabel, searchPlaceLabel } from "@/lib/format";
 import { clsx } from "./clsx";
@@ -26,6 +27,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { selectedIds, profile } = useAppState();
   const { user } = useAuth();
   const welcomeName = displayNameFromEmail(user?.email);
+  const nav = isAdminEmail(user?.email)
+    ? [...NAV, { href: "/admin", label: "Admin" }]
+    : NAV;
   const navRef = useRef<HTMLElement>(null);
   const locationLine = `${searchPlaceLabel(profile)} · ${pickupRadiusLabel(profile.maxDeadMiles)} · Home ${homePlaceLabel(profile)}`;
 
@@ -71,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           aria-label="Main"
           className="shell-nav -mx-4 mt-2 flex gap-1 overflow-x-auto overscroll-x-contain px-4 md:-mx-6 md:px-6"
         >
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const active = isActive(pathname, item.href);
             return (
               <Link

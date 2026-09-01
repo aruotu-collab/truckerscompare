@@ -69,9 +69,14 @@ export function rowToProfile(row: ProfileRow): OperatorProfile {
   };
 }
 
-export function profileToRow(userId: string, profile: OperatorProfile) {
+export function profileToRow(
+  userId: string,
+  profile: OperatorProfile,
+  email?: string | null,
+) {
   return {
     id: userId,
+    email: email?.trim().toLowerCase() || null,
     display_name: profile.displayName,
     home_city: profile.homeCity,
     home_location: profile.homeLocation.trim(),
@@ -118,10 +123,17 @@ export async function fetchRemoteProfile(
 export async function upsertRemoteProfile(
   userId: string,
   profile: OperatorProfile,
+  email?: string | null,
 ): Promise<void> {
   const supabase = createBrowserSupabase();
-  const row = profileToRow(userId, profile);
+  const row = profileToRow(userId, profile, email);
   const { error } = await supabase.from("profiles").upsert(row, { onConflict: "id" });
+  if (error && /email/i.test(error.message) && "email" in row) {
+    const { email: _dropped, ...withoutEmail } = row;
+    const retry = await supabase.from("profiles").upsert(withoutEmail, { onConflict: "id" });
+    if (retry.error) throw retry.error;
+    return;
+  }
   if (error && /home_location|search_location/i.test(error.message)) {
     let next: Record<string, unknown> = { ...row };
     if (/home_location/i.test(error.message)) {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AdminTracker } from "@/components/AdminTracker";
 import { AppShell } from "@/components/AppShell";
 import { AppStateProvider } from "@/context/AppState";
 import { AuthProvider } from "@/context/Auth";
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AuthProvider>
           <AppStateProvider>
             <AppShell>{children}</AppShell>
+            <AdminTracker />
           </AppStateProvider>
         </AuthProvider>
         {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
