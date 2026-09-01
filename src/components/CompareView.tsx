@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useAppState } from "@/context/AppState";
 import { compareTradeoff, decisionBoundary, vsHeadline } from "@/lib/explanations";
-import { deadMilesSplit, gbp, hasMarketBid, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minsLabel, routeLabel, workingBid } from "@/lib/format";
+import { deadMilesSplit, gbp, hasMarketBid, highestBidOf, hoursLabel, jobPath, loadHeadline, milesLabel, minsLabel, routeLabel, shiplyPullLabel, workingBid } from "@/lib/format";
 import type { AnalysedJob } from "@/lib/types";
 import { clsx } from "./clsx";
 import { TripDiagram } from "./TripDiagram";
@@ -13,7 +13,7 @@ import { BandPill, OpenOnMarketplace, ScoreRing, SourceChip } from "./ui";
 
 export function CompareView() {
   const params = useSearchParams();
-  const { market, selectedIds, selectMany, clearSelected, bookStale } = useAppState();
+  const { market, selectedIds, selectMany, clearSelected, bookStale, bookPulledAt } = useAppState();
   const fromQuery = (params.get("ids") ?? "")
     .split(",")
     .map((s) => s.trim())
@@ -34,8 +34,8 @@ export function CompareView() {
         <p className="max-w-xl text-sm text-muted">
           {bookStale ? (
             <>
-              These Shiply jobs are more than 5 hours old, so they are hidden.
-              Refresh to compare what is still live.
+              {shiplyPullLabel(bookPulledAt)}. These Shiply jobs are hidden
+              until you refresh. Refresh to compare what is still live.
             </>
           ) : (
             <>

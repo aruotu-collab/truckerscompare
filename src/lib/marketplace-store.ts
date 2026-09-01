@@ -40,6 +40,7 @@ interface JobRow {
   description: string;
   loading_minutes_known: boolean;
   listed_miles?: number | string | null;
+  updated_at?: string | null;
 }
 
 export function rowToJob(row: JobRow): RawJob {
@@ -64,6 +65,7 @@ export function rowToJob(row: JobRow): RawJob {
       const miles = Number(row.listed_miles);
       return Number.isFinite(miles) && miles > 0 ? miles : null;
     })(),
+    updatedAt: row.updated_at ?? null,
   };
 }
 
@@ -108,7 +110,7 @@ export async function fetchConnection(
   return {
     source: row.source,
     status: row.status,
-    lastSyncedAt: row.last_synced_at,
+    lastSyncedAt: row.last_synced_at ? String(row.last_synced_at) : null,
     lastError: row.last_error,
     jobCount: row.job_count,
     hasContext: Boolean(row.browserbase_context_id),
@@ -116,11 +118,14 @@ export async function fetchConnection(
 }
 
 const JOB_SELECT =
-  "source, external_id, listing_url, pickup_city, delivery_city, category, vehicle_required, revenue, highest_bid, weight_kg, collection_window, delivery_window, posted_minutes_ago, quote_count, description, loading_minutes_known, listed_miles";
+  "source, external_id, listing_url, pickup_city, delivery_city, category, vehicle_required, revenue, highest_bid, weight_kg, collection_window, delivery_window, posted_minutes_ago, quote_count, description, loading_minutes_known, listed_miles, updated_at";
 
 function dropOptionalJobColumn(columns: string, message: string): string | null {
   if (/listed_miles/i.test(message) && columns.includes("listed_miles")) {
     return columns.replace(", listed_miles", "");
+  }
+  if (/updated_at/i.test(message) && columns.includes("updated_at")) {
+    return columns.replace(", updated_at", "");
   }
   if (/highest_bid/i.test(message) && columns.includes("highest_bid")) {
     return columns.replace(", highest_bid", "");

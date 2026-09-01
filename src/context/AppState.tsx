@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useAuth } from "@/context/Auth";
 import { analyseMarket, getRawJobs } from "@/lib/engine";
-import { isShiplyBookFresh } from "@/lib/format";
+import { isShiplyBookFresh, latestTimeMs } from "@/lib/format";
 import { hydratePlaceGeos, placesForBook } from "@/lib/postcode-points";
 import { DEFAULT_PROFILE, loadProfile, saveProfile } from "@/lib/profile";
 import {
@@ -57,6 +57,7 @@ interface AppStateValue {
   setBook: (next: BookSource) => void;
   liveJobs: RawJob[];
   bookStale: boolean;
+  bookPulledAt: number | null;
   connection: MarketplaceConnection | null;
   importShiplyJobs: (jobs: RawJob[]) => Promise<void>;
   disconnectShiply: () => Promise<void>;
@@ -399,10 +400,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     profile.homeCity,
   ]);
 
+  const bookPulledAt = latestTimeMs(
+    connection?.lastSyncedAt,
+    ...liveJobs.map((job) => job.updatedAt),
+  );
   const bookStale =
     book === "shiply" &&
     liveJobs.length > 0 &&
-    !isShiplyBookFresh(connection?.lastSyncedAt, now);
+    bookPulledAt != null &&
+    !isShiplyBookFresh(bookPulledAt, now);
   const shiplyJobs = book === "shiply" && !bookStale ? liveJobs : EMPTY_JOBS;
 
   const market = useMemo(
@@ -440,6 +446,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setBook,
       liveJobs,
       bookStale,
+      bookPulledAt,
       connection,
       importShiplyJobs,
       disconnectShiply,
@@ -467,6 +474,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       book,
       liveJobs,
       bookStale,
+      bookPulledAt,
       connection,
       market,
       selectedIds,

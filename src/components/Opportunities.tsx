@@ -18,6 +18,7 @@ import {
   milesLabel,
   pickupRadiusLabel,
   routeLabel,
+  shiplyPullLabel,
 } from "@/lib/format";
 import { sourceLabel } from "@/lib/marketplaces";
 import type { AnalysedJob, JobSource } from "@/lib/types";
@@ -35,7 +36,7 @@ type SortKey =
   | "pickupMiles";
 
 export function Opportunities() {
-  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile, book, bookStale, movements, workingJobId } =
+  const { market, selectedIds, toggleSelected, dismissedIds, savedIds, profile, setProfile, book, bookStale, bookPulledAt, movements, workingJobId } =
     useAppState();
   const working = workingJobId ? jobById(market.jobs, workingJobId) : null;
   const followOns = working ? followOnJobs(market.jobs, working) : [];
@@ -101,8 +102,8 @@ export function Opportunities() {
           <p className="mt-1 text-sm text-muted">
             {book === "shiply" && bookStale ? (
               <>
-                These Shiply jobs are more than 5 hours old, so they are hidden
-                — they may have left the site.{" "}
+                {shiplyPullLabel(bookPulledAt)}. These Shiply jobs are hidden
+                until you refresh — listings that old may have left the site.{" "}
                 <Link href="/connect" className="text-gold hover:underline">
                   Refresh from Shiply
                 </Link>{" "}

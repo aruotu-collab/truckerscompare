@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAppState } from "@/context/AppState";
 import { useAuth } from "@/context/Auth";
-import { searchPlaceLabel } from "@/lib/format";
+import { searchPlaceLabel, shiplyPullLabel } from "@/lib/format";
 import { driverFacingError, readApiJson } from "@/lib/user-error";
 import { WhereYouAre } from "./WhereYouAre";
 
@@ -13,6 +13,7 @@ export function ConnectShiply({ embedded = false }: { embedded?: boolean }) {
   const {
     liveJobs,
     bookStale,
+    bookPulledAt,
     connection,
     disconnectShiply,
     refreshShiply,
@@ -159,14 +160,12 @@ export function ConnectShiply({ embedded = false }: { embedded?: boolean }) {
           </p>
           <p className="mt-2 text-sm">
             <span className={bookStale ? "text-warn" : "text-good"}>
-              {bookStale ? "Older than 5 hours — refresh" : "Connected"}
+              {bookStale ? "Needs a refresh" : "Connected"}
             </span>
             <span className="text-muted">
               {" "}
               · {bookStale ? 0 : liveJobs.length} Shiply jobs
-              {connection?.lastSyncedAt
-                ? ` · last refresh ${new Date(connection.lastSyncedAt).toLocaleString("en-GB")}`
-                : ""}
+              {bookPulledAt ? ` · ${shiplyPullLabel(bookPulledAt)}` : ""}
             </span>
           </p>
           {bookStale ? (

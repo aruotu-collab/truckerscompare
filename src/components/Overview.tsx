@@ -16,6 +16,7 @@ import {
   milesLabel,
   pickupRadiusLabel,
   routeLabel,
+  shiplyPullLabel,
   workingBid,
   winnerLabel,
 } from "@/lib/format";
@@ -25,7 +26,7 @@ import { TripDiagram } from "./TripDiagram";
 import { BandPill, MarketplaceBids, Money, OpenOnMarketplace, ScoreRing, SourceChip, WinnerChip } from "./ui";
 
 export function Overview() {
-  const { market, book, bookStale } = useAppState();
+  const { market, book, bookStale, bookPulledAt } = useAppState();
   const { winners, market: summary, actNow, consider, combinations } = market;
   const comboA = winners.bestCombination
     ? jobById(market.jobs, winners.bestCombination.jobAId)
@@ -42,8 +43,8 @@ export function Overview() {
         <p className="mt-2 max-w-2xl text-sm text-muted">
           {book === "shiply" && bookStale ? (
             <>
-              These Shiply jobs are more than 5 hours old, so they are hidden —
-              those listings may have left the site.{" "}
+              {shiplyPullLabel(bookPulledAt)}. These Shiply jobs are hidden
+              until you refresh — those listings may have left the site.{" "}
               <Link href="/connect" className="text-gold hover:underline">
                 Refresh from Shiply
               </Link>{" "}

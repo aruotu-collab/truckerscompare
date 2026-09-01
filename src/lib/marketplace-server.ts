@@ -43,17 +43,39 @@ export async function saveConnectionMeta(
   source = "Shiply",
 ) {
   const supabase = await createServerSupabase();
-  const row: Record<string, unknown> = {
+  const fields: Record<string, unknown> = {};
+  if (patch.status) fields.status = patch.status;
+  if (patch.lastError !== undefined) fields.last_error = patch.lastError;
+  if (patch.jobCount !== undefined) fields.job_count = patch.jobCount;
+  if (patch.contextId !== undefined) fields.browserbase_context_id = patch.contextId;
+  if (patch.sessionId !== undefined) fields.browserbase_session_id = patch.sessionId;
+  if (patch.synced) fields.last_synced_at = new Date().toISOString();
+
+  const { data: existing, error: readError } = await supabase
+    .from("marketplace_connections")
+    .select("user_id")
+    .eq("user_id", userId)
+    .eq("source", source)
+    .maybeSingle();
+  if (readError) throw readError;
+
+  if (existing) {
+    if (Object.keys(fields).length === 0) return;
+    const { error } = await supabase
+      .from("marketplace_connections")
+      .update(fields)
+      .eq("user_id", userId)
+      .eq("source", source);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("marketplace_connections").insert({
     user_id: userId,
     source,
-  };
-  if (patch.status) row.status = patch.status;
-  if (patch.lastError !== undefined) row.last_error = patch.lastError;
-  if (patch.jobCount !== undefined) row.job_count = patch.jobCount;
-  if (patch.contextId !== undefined) row.browserbase_context_id = patch.contextId;
-  if (patch.sessionId !== undefined) row.browserbase_session_id = patch.sessionId;
-  if (patch.synced) row.last_synced_at = new Date().toISOString();
-  const { error } = await supabase.from("marketplace_connections").upsert(row);
+    status: patch.status ?? "disconnected",
+    ...fields,
+  });
   if (error) throw error;
 }
 
@@ -86,4 +108,13 @@ export async function saveLiveJobs(
       throw error;
     }
   }
+  const { error: stampError } = await supabase
+    .from("marketplace_connections")
+    .update({
+      last_synced_at: new Date().toISOString(),
+      job_count: jobs.length,
+    })
+    .eq("user_id", userId)
+    .eq("source", source);
+  if (stampError) throw stampError;
 }

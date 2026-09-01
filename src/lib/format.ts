@@ -110,14 +110,60 @@ export const PICKUP_RADIUS_OPTIONS = [10, 25, 40, 80, 0] as const;
 /** A Shiply book older than this is treated as gone — listings may have left the site. */
 export const SHIPLY_BOOK_MAX_AGE_MS = 5 * 60 * 60 * 1000;
 
+export function parseTimeMs(
+  value: string | number | Date | null | undefined,
+): number | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (value instanceof Date) {
+    const at = value.getTime();
+    return Number.isFinite(at) ? at : null;
+  }
+  const raw = String(value).trim();
+  const direct = Date.parse(raw);
+  if (Number.isFinite(direct)) return direct;
+  const normalized = raw.replace(" ", "T").replace(/(\.\d{3})\d+/, "$1");
+  const retry = Date.parse(normalized);
+  return Number.isFinite(retry) ? retry : null;
+}
+
+export function latestTimeMs(
+  ...values: Array<string | number | Date | null | undefined>
+): number | null {
+  let max: number | null = null;
+  for (const value of values) {
+    const at = parseTimeMs(value);
+    if (at != null && (max == null || at > max)) max = at;
+  }
+  return max;
+}
+
 export function isShiplyBookFresh(
-  lastSyncedAt: string | null | undefined,
+  lastSyncedAt: string | number | Date | null | undefined,
   now = Date.now(),
 ): boolean {
-  if (!lastSyncedAt) return false;
-  const at = Date.parse(lastSyncedAt);
-  if (!Number.isFinite(at)) return false;
+  const at = parseTimeMs(lastSyncedAt);
+  if (at == null) return false;
   return now - at < SHIPLY_BOOK_MAX_AGE_MS;
+}
+
+export function shiplyPullLabel(
+  lastSyncedAt: string | number | Date | null | undefined,
+  now = Date.now(),
+): string {
+  const at = parseTimeMs(lastSyncedAt);
+  if (at == null) return "Last pull time unknown";
+  const ago = Math.max(0, now - at);
+  if (ago < 60_000) return "Last pull just now";
+  if (ago < 60 * 60_000) {
+    const mins = Math.max(1, Math.round(ago / 60_000));
+    return `Last pull ${mins} min ago`;
+  }
+  if (ago < 36 * 60 * 60_000) {
+    const hours = Math.max(1, Math.round(ago / 3_600_000));
+    return `Last pull ${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+  return `Last pull ${new Date(at).toLocaleString("en-GB")}`;
 }
 
 export function pickupRadiusLabel(miles: number): string {

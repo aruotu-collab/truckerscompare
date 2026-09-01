@@ -27,6 +27,7 @@ import {
   normalizeJobId,
   postedLabel,
   routeLabel,
+  shiplyPullLabel,
   vehicleLabel,
   workingBid,
 } from "@/lib/format";
@@ -50,6 +51,7 @@ export function JobDetail() {
     savedIds,
     dismiss,
     bookStale,
+    bookPulledAt,
     outcomes,
     recordOutcome,
     workingJobId,
@@ -63,7 +65,7 @@ export function JobDetail() {
       <div>
         <p className="text-muted">
           {bookStale
-            ? "This listing is hidden because the Shiply jobs are more than 5 hours old. Refresh to pull what is still live."
+            ? `${shiplyPullLabel(bookPulledAt)}. This listing is hidden until you refresh.`
             : "That job is not in this list."}
         </p>
         <Link href={bookStale ? "/connect" : "/opportunities"} className="mt-3 inline-block text-gold">
